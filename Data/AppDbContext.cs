@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<TaxConfiguration> TaxConfigurations => Set<TaxConfiguration>();
     public DbSet<PayrollBatch> PayrollBatches => Set<PayrollBatch>();
     public DbSet<PayrollEntry> PayrollEntries => Set<PayrollEntry>();
+    public DbSet<Notice> Notices => Set<Notice>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -87,5 +88,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .WithMany()
             .HasForeignKey(e => e.EmployeeId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Notice
+        builder.Entity<Notice>()
+            .HasOne(n => n.Business)
+            .WithMany()
+            .HasForeignKey(n => n.BusinessId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

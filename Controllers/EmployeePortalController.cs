@@ -56,6 +56,40 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
         return Ok(entries);
     }
 
+    // ── GET /api/employee-portal/notices ─────────────────────────────────────
+    /// Returns all notices posted by the employer for this employee's business.
+    [HttpGet("notices")]
+    public async Task<ActionResult> GetNotices()
+    {
+        var employeeId = GetEmployeeId();
+        if (employeeId is null) return Unauthorized();
+
+        // Resolve businessId from the employee record
+        var businessId = await dbContext.Employees
+            .Where(e => e.Id == employeeId.Value)
+            .Select(e => (int?)e.BusinessId)
+            .FirstOrDefaultAsync();
+
+        if (businessId is null) return Unauthorized();
+
+        var notices = await dbContext.Notices
+            .Where(n => n.BusinessId == businessId.Value)
+            .OrderByDescending(n => n.CreatedAt)
+            .Select(n => new
+            {
+                n.Id,
+                n.Title,
+                n.Message,
+                n.Type,
+                n.Priority,
+                n.Category,
+                n.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(notices);
+    }
+
     // ── GET /api/employee-portal/debug ───────────────────────────────────────
     /// Returns all JWT claims so we can verify the token is being read correctly.
     [HttpGet("debug")]
