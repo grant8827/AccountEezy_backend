@@ -118,6 +118,29 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
         return Ok(notices);
     }
 
+    // ── GET /api/employee-portal/profile ─────────────────────────────────────
+    /// Returns employee profile info needed for the leave request form.
+    [HttpGet("profile")]
+    public async Task<ActionResult> GetProfile()
+    {
+        var employeeId = GetEmployeeId();
+        if (employeeId is null) return Unauthorized();
+
+        var profile = await dbContext.Employees
+            .Where(e => e.Id == employeeId.Value)
+            .Select(e => new
+            {
+                e.Id,
+                name  = e.Name,
+                e.Email
+            })
+            .FirstOrDefaultAsync();
+
+        if (profile is null) return NotFound();
+
+        return Ok(profile);
+    }
+
     // ── GET /api/employee-portal/debug ───────────────────────────────────────
     /// Returns all JWT claims so we can verify the token is being read correctly.
     [HttpGet("debug")]
