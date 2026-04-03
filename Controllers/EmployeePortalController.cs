@@ -56,6 +56,34 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
         return Ok(entries);
     }
 
+    // ── GET /api/employee-portal/leaves ──────────────────────────────────────
+    /// Returns this employee's own leave requests, ordered newest first.
+    [HttpGet("leaves")]
+    public async Task<ActionResult> GetLeaves()
+    {
+        var employeeId = GetEmployeeId();
+        if (employeeId is null) return Unauthorized();
+
+        var leaves = await dbContext.LeaveRequests
+            .Where(lr => lr.EmployeeId == employeeId.Value)
+            .OrderByDescending(lr => lr.RequestedOn)
+            .Select(lr => new
+            {
+                lr.Id,
+                lr.LeaveType,
+                lr.StartDate,
+                lr.EndDate,
+                lr.DaysRequested,
+                lr.Reason,
+                lr.Status,
+                lr.AdminNotes,
+                lr.RequestedOn
+            })
+            .ToListAsync();
+
+        return Ok(leaves);
+    }
+
     // ── GET /api/employee-portal/notices ─────────────────────────────────────
     /// Returns all notices posted by the employer for this employee's business.
     [HttpGet("notices")]
