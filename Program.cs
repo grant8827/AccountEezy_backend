@@ -71,6 +71,13 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// ── Apply pending migrations on every startup ─────────────────────────────
+using (var startupScope = app.Services.CreateScope())
+{
+    var db = startupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 // Seed test data in development
 if (app.Environment.IsDevelopment())
 {
