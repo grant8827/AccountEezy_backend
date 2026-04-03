@@ -55,7 +55,9 @@ builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
-        policy.WithOrigins("http://localhost:4200")
+        policy.WithOrigins(
+            "http://localhost:4200",
+            "https://accounteezyfrontend-production.up.railway.app")
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
