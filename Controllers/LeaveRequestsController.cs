@@ -25,7 +25,7 @@ public class LeaveApprovalDto
 
 [ApiController]
 [Route("api/[controller]")]
-public class LeaveRequestsController(AppDbContext dbContext) : ControllerBase
+public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment env) : ControllerBase
 {
     // Get all leave requests (Admin view - for business)
     [Authorize]
@@ -96,6 +96,37 @@ public class LeaveRequestsController(AppDbContext dbContext) : ControllerBase
         await dbContext.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetByEmployee), new { employeeId = employeeId }, leaveRequest);
+    }
+
+    // Upload a medical certificate or supporting document
+    [Authorize]
+    [HttpPost("upload-document")]
+    [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB max
+    public async Task<IActionResult> UploadDocument(IFormFile document)
+    {
+        if (document == null || document.Length == 0)
+            return BadRequest(new { error = "No file provided" });
+
+        if (document.Length > 5 * 1024 * 1024)
+            return BadRequest(new { error = "File size must not exceed 5 MB" });
+
+        var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png" };
+        var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new { error = "Only PDF, JPG, and PNG files are allowed" });
+
+        var uploadsFolder = Path.Combine(env.ContentRootPath, "wwwroot", "uploads", "leaves");
+        Directory.CreateDirectory(uploadsFolder);
+
+        var uniqueFileName = $"{Guid.NewGuid()}{extension}";
+        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await document.CopyToAsync(stream);
+        }
+
+        return Ok(new { documentPath = $"/uploads/leaves/{uniqueFileName}" });
     }
 
     // Update leave request status (Admin only - approve/reject)
