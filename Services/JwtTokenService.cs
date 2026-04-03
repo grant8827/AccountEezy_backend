@@ -18,14 +18,14 @@ public class JwtOptions
 
 public interface IJwtTokenService
 {
-    (string token, DateTime expiresAtUtc) Generate(AppUser user);
+    (string token, DateTime expiresAtUtc) Generate(AppUser user, int? employeeId = null);
 }
 
 public class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
 {
     private readonly JwtOptions _jwtOptions = options.Value;
 
-    public (string token, DateTime expiresAtUtc) Generate(AppUser user)
+    public (string token, DateTime expiresAtUtc) Generate(AppUser user, int? employeeId = null)
     {
         var claims = new List<Claim>
         {
@@ -39,6 +39,11 @@ public class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
         if (user.BusinessId is not null)
         {
             claims.Add(new Claim("businessId", user.BusinessId.Value.ToString()));
+        }
+
+        if (employeeId is not null)
+        {
+            claims.Add(new Claim("employeeId", employeeId.Value.ToString()));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));

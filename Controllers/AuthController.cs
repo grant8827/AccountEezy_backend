@@ -135,7 +135,7 @@ public class AuthController(
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Email == request.Email && e.IsActive);
 
-        var (token, expiresAt) = jwtTokenService.Generate(user);
+        var (token, expiresAt) = jwtTokenService.Generate(user, employee?.Id);
 
         var loginTrialStart = business?.TrialStartDate ?? DateTime.UtcNow;
         var loginTrialExpiresAt = loginTrialStart.AddDays(30);

@@ -144,3 +144,4 @@
 /Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/bin/Debug/net9.0/Npgsql.dll
 /Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/bin/Debug/net9.0/Npgsql.EntityFrameworkCore.PostgreSQL.dll
 /Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/bin/Debug/net9.0/BCrypt.Net-Next.dll
+/Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/obj/Debug/net9.0/backend.sourcelink.json
