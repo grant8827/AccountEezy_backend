@@ -106,12 +106,40 @@ public class AuthController(
     {
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.NormalizedEmail == request.Email.ToUpper());
+
+        // No AppUser found — try authenticating as an Employee directly
         if (user is null)
         {
+            var empUser = await dbContext.Employees
+                .FirstOrDefaultAsync(e => e.Email == request.Email && e.IsActive);
+
+            if (empUser is null || string.IsNullOrEmpty(empUser.PasswordHash) ||
+                !BCrypt.Net.BCrypt.Verify(request.Password, empUser.PasswordHash))
+            {
+                return Ok(new AuthResponse { Success = false, Message = "Invalid email or password." });
+            }
+
+            var (empToken, empExpires) = jwtTokenService.GenerateForEmployee(empUser);
             return Ok(new AuthResponse
             {
-                Success = false,
-                Message = "Invalid email or password."
+                Success = true,
+                Message = "Login successful",
+                Data = new AuthData
+                {
+                    User = new UserData
+                    {
+                        Email = empUser.Email ?? request.Email,
+                        EmployeeId = empUser.Id,
+                        EmployeeName = empUser.Name,
+                        IsEmployee = true,
+                        IsAdmin = false,
+                        ExpiresAtUtc = empExpires,
+                        TrialStartDate = DateTime.UtcNow,
+                        TrialExpiresAt = DateTime.UtcNow.AddYears(100),
+                        IsTrialExpired = false
+                    },
+                    Token = empToken
+                }
             });
         }
 
