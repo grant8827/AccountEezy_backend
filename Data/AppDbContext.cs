@@ -1,10 +1,11 @@
 using backend.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<AppUser>(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUserContext<AppUser>(options)
 {
     public DbSet<Business> Businesses => Set<Business>();
     public DbSet<Employee> Employees => Set<Employee>();
@@ -19,6 +20,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        // Remove unused Identity tables
+        builder.Ignore<IdentityUserClaim<string>>();
+        builder.Ignore<IdentityUserLogin<string>>();
+        builder.Ignore<IdentityUserToken<string>>();
 
         builder.Entity<Business>()
             .HasIndex(b => b.TRN)

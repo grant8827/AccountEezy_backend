@@ -141,18 +141,6 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
         return Ok(profile);
     }
 
-    // ── GET /api/employee-portal/debug ───────────────────────────────────────
-    /// Returns all JWT claims so we can verify the token is being read correctly.
-    [HttpGet("debug")]
-    public ActionResult GetDebug()
-    {
-        return Ok(new
-        {
-            resolvedEmployeeId = GetEmployeeId(),
-            claims = User.Claims.Select(c => new { type = c.Type, value = c.Value }).ToList()
-        });
-    }
-
     private int? GetEmployeeId()
     {
         // Employee JWT carries "employeeId" claim (set by EmployeeAuthController)

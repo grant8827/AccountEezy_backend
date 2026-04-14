@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "iYor4QB/V1I=",
+  "dgSpecHash": "pnupY+1iXVI=",
   "success": true,
   "projectFilePath": "/Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/backend.csproj",
   "expectedPackageFiles": [
@@ -65,7 +65,10 @@
     "/Users/gregorygrant/.nuget/packages/system.reflection.metadata/7.0.0/system.reflection.metadata.7.0.0.nupkg.sha512",
     "/Users/gregorygrant/.nuget/packages/system.runtime.compilerservices.unsafe/6.0.0/system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
     "/Users/gregorygrant/.nuget/packages/system.text.json/9.0.8/system.text.json.9.0.8.nupkg.sha512",
-    "/Users/gregorygrant/.nuget/packages/system.threading.channels/7.0.0/system.threading.channels.7.0.0.nupkg.sha512"
+    "/Users/gregorygrant/.nuget/packages/system.threading.channels/7.0.0/system.threading.channels.7.0.0.nupkg.sha512",
+    "/Users/gregorygrant/.nuget/packages/microsoft.netcore.app.ref/9.0.14/microsoft.netcore.app.ref.9.0.14.nupkg.sha512",
+    "/Users/gregorygrant/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.14/microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512",
+    "/Users/gregorygrant/.nuget/packages/microsoft.netcore.app.host.osx-x64/9.0.14/microsoft.netcore.app.host.osx-x64.9.0.14.nupkg.sha512"
   ],
   "logs": []
 }

@@ -139,12 +139,24 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         var newEntries = new List<PayrollEntry>();
         foreach (var emp in employees)
         {
+            // Only include employees whose pay cycle matches the batch pay cycle
+            if (!string.Equals(emp.PayCycle, batch.PayCycle, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var input = request.Entries.FirstOrDefault(e => e.EmployeeId == emp.Id);
             var holiday = input?.HolidayPay ?? 0m;
             var bonus = input?.Bonus ?? 0m;
             var loan = input?.LoanDeduction ?? 0m;
 
-            var result = payrollService.CalculateWithConfig(emp.GrossSalary, holiday, bonus, loan, taxConfig);
+            // Convert monthly salary to the effective pay-period salary before calculating
+            var periodSalary = batch.PayCycle.ToLower() switch
+            {
+                "weekly"      => emp.GrossSalary / 4.333m,
+                "fortnightly" => emp.GrossSalary / 2m,
+                _             => emp.GrossSalary   // Monthly
+            };
+
+            var result = payrollService.CalculateWithConfig(periodSalary, holiday, bonus, loan, taxConfig);
 
             newEntries.Add(new PayrollEntry
             {

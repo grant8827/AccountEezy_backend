@@ -98,36 +98,26 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                     BusinessId = businessId.Value
                 };
 
-                var result = await userManager.CreateAsync(appUser, request.Password);
-                if (!result.Succeeded)
-                {
-                    // Log the error but don't fail the employee creation
-                    Console.WriteLine($"Failed to create user account for {request.Email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-                }
-                else
-                {
-                    Console.WriteLine($"✅ Created user account for employee: {request.Email}");
-                }
+                await userManager.CreateAsync(appUser, request.Password);
             }
         }
 
-        return CreatedAtAction(nameof(GetAll), new { id = employee.Id }, employee);
+        return CreatedAtAction(nameof(GetAll), new { id = employee.Id }, new
+        {
+            employee.Id, employee.Name, employee.NISNumber, employee.GrossSalary, employee.PayCycle,
+            employee.TRN, employee.EmployeeIdNumber, employee.BankAccountNumber, employee.BankName,
+            employee.DateOfBirth, employee.Address, employee.Email, employee.IsActive
+        });
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<Employee>> Update(int id, EmployeeRequest request)
     {
-        Console.WriteLine($"PUT /api/employees/{id} - Request: Name={request.Name}, NisNumber={request.NisNumber}, GrossSalary={request.GrossSalary}, PayCycle={request.PayCycle}");
-
         var businessId = GetBusinessId();
-        Console.WriteLine($"BusinessId from claims: {businessId}");
-
         if (businessId is null) return Unauthorized();
 
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Id == id && e.BusinessId == businessId.Value);
-
-        Console.WriteLine($"Employee found: {employee != null}");
 
         if (employee is null) return NotFound();
 
@@ -154,7 +144,6 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         }
 
         await dbContext.SaveChangesAsync();
-        Console.WriteLine($"Employee {id} updated successfully");
 
         // Update user account if email or password changed
         if (!string.IsNullOrEmpty(oldEmail))
@@ -170,7 +159,6 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                     appUser.NormalizedEmail = request.Email.ToUpper();
                     appUser.NormalizedUserName = request.Email.ToUpper();
                     await userManager.UpdateAsync(appUser);
-                    Console.WriteLine($"✅ Updated user email from {oldEmail} to {request.Email}");
                 }
 
                 // Update password if provided
@@ -178,7 +166,6 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                 {
                     var token = await userManager.GeneratePasswordResetTokenAsync(appUser);
                     await userManager.ResetPasswordAsync(appUser, token, request.Password);
-                    Console.WriteLine($"✅ Updated user password for {request.Email}");
                 }
             }
             else if (!string.IsNullOrEmpty(request.Email) && !string.IsNullOrEmpty(request.Password))
@@ -191,11 +178,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                     EmailConfirmed = true,
                     BusinessId = businessId.Value
                 };
-                var result = await userManager.CreateAsync(newUser, request.Password);
-                if (result.Succeeded)
-                {
-                    Console.WriteLine($"✅ Created new user account for employee: {request.Email}");
-                }
+                await userManager.CreateAsync(newUser, request.Password);
             }
         }
 
@@ -218,10 +201,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         {
             var appUser = await userManager.FindByEmailAsync(employee.Email);
             if (appUser != null)
-            {
                 await userManager.DeleteAsync(appUser);
-                Console.WriteLine($"✅ Deleted user account for employee: {employee.Email}");
-            }
         }
 
         dbContext.Employees.Remove(employee);

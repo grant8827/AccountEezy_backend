@@ -63,6 +63,28 @@ public class NoticesController(AppDbContext dbContext) : ControllerBase
         return Ok(new { notice.Id, notice.Title, notice.Message, notice.Type, notice.Priority, notice.Category, notice.CreatedAt });
     }
 
+    // ── PUT /api/notices/{id} ────────────────────────────────────────────────
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult> UpdateNotice(int id, [FromBody] CreateNoticeRequest request)
+    {
+        var businessId = GetBusinessId();
+        if (businessId is null) return Unauthorized();
+
+        var notice = await dbContext.Notices
+            .FirstOrDefaultAsync(n => n.Id == id && n.BusinessId == businessId.Value);
+
+        if (notice is null) return NotFound();
+
+        notice.Title    = request.Title;
+        notice.Message  = request.Message;
+        notice.Type     = request.Type;
+        notice.Priority = request.Priority;
+        notice.Category = request.Category;
+
+        await dbContext.SaveChangesAsync();
+        return Ok(new { notice.Id, notice.Title, notice.Message, notice.Type, notice.Priority, notice.Category, notice.CreatedAt });
+    }
+
     // ── DELETE /api/notices/{id} ─────────────────────────────────────────────
     [HttpDelete("{id:int}")]
     public async Task<ActionResult> DeleteNotice(int id)

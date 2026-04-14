@@ -77,7 +77,7 @@ public class AuthController(
         // Generate JWT token
         var (token, expiresAt) = jwtTokenService.Generate(user);
 
-        var trialExpiresAt = business.TrialStartDate.AddDays(30);
+        var trialExpiresAt = business.TrialStartDate.AddYears(100); // Trial disabled during development
         return Ok(new AuthResponse
         {
             Success = true,
@@ -166,7 +166,7 @@ public class AuthController(
         var (token, expiresAt) = jwtTokenService.Generate(user, employee?.Id);
 
         var loginTrialStart = business?.TrialStartDate ?? DateTime.UtcNow;
-        var loginTrialExpiresAt = loginTrialStart.AddDays(30);
+        var loginTrialExpiresAt = loginTrialStart.AddYears(100); // Trial disabled during development
         return Ok(new AuthResponse
         {
             Success = true,

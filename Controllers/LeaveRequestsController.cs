@@ -39,6 +39,22 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
             .Include(lr => lr.Employee)
             .Where(lr => lr.Employee!.BusinessId == businessId.Value)
             .OrderByDescending(lr => lr.RequestedOn)
+            .Select(lr => new
+            {
+                lr.Id,
+                lr.EmployeeId,
+                Employee = lr.Employee == null ? null : new { lr.Employee.Id, lr.Employee.Name, lr.Employee.Email },
+                lr.LeaveType,
+                lr.StartDate,
+                lr.EndDate,
+                lr.DaysRequested,
+                lr.Reason,
+                lr.Status,
+                lr.AdminNotes,
+                lr.RequestedOn,
+                lr.ReviewedOn,
+                lr.DocumentPath
+            })
             .ToListAsync();
 
         return Ok(leaveRequests);
@@ -50,13 +66,23 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
     public async Task<ActionResult<IEnumerable<LeaveRequest>>> GetByEmployee(int employeeId)
     {
         var businessId = GetBusinessId();
-        
-        // If admin, verify employee belongs to their business
+        var employeeIdClaim = User.FindFirstValue("employeeId");
+
+        // If admin, verify the requested employee belongs to their business
         if (businessId is not null)
         {
             var employee = await dbContext.Employees
                 .FirstOrDefaultAsync(e => e.Id == employeeId && e.BusinessId == businessId.Value);
             if (employee is null) return NotFound();
+        }
+        else if (int.TryParse(employeeIdClaim, out var callerEmployeeId))
+        {
+            // Employee can only read their own leave history
+            if (callerEmployeeId != employeeId) return Forbid();
+        }
+        else
+        {
+            return Unauthorized();
         }
 
         var leaveRequests = await dbContext.LeaveRequests
@@ -96,6 +122,33 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         await dbContext.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetByEmployee), new { employeeId = employeeId }, leaveRequest);
+    }
+
+    // Update a pending leave request (employee only)
+    [Authorize]
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, LeaveRequestDto request)
+    {
+        var employeeIdClaim = User.FindFirstValue("employeeId");
+        if (string.IsNullOrEmpty(employeeIdClaim) || !int.TryParse(employeeIdClaim, out var employeeId))
+            return Unauthorized(new { error = "Employee authentication required" });
+
+        var leaveRequest = await dbContext.LeaveRequests
+            .FirstOrDefaultAsync(lr => lr.Id == id && lr.EmployeeId == employeeId && lr.Status == "Pending");
+
+        if (leaveRequest is null)
+            return NotFound(new { error = "Leave request not found or cannot be edited" });
+
+        leaveRequest.LeaveType = request.LeaveType;
+        leaveRequest.StartDate = request.StartDate;
+        leaveRequest.EndDate = request.EndDate;
+        leaveRequest.DaysRequested = request.DaysRequested;
+        leaveRequest.Reason = request.Reason;
+        if (request.DocumentPath != null)
+            leaveRequest.DocumentPath = request.DocumentPath;
+
+        await dbContext.SaveChangesAsync();
+        return Ok(leaveRequest);
     }
 
     // Upload a medical certificate or supporting document
