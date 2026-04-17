@@ -28,4 +28,7 @@ public class So1ReportResponse
     // Status
     public string Status { get; set; } = "Pending";
     public int? TaxRecordId { get; set; }
+
+    // Financial summary (income & expenses from transactions for the month)
+    public FinancialSummary? Financial { get; set; }
 }

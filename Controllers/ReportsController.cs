@@ -51,7 +51,8 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             GctPayable           = report.GctPayable,
             TotalRemittance      = report.TotalRemittance,
             Status               = report.Status,
-            TaxRecordId          = report.TaxRecordId
+            TaxRecordId          = report.TaxRecordId,
+            Financial            = report.Financial
         });
     }
 
