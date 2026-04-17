@@ -44,9 +44,20 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             .OrderBy(e => e.Name)
             .Select(e => new
             {
-                e.Id, e.Name, e.NISNumber, e.GrossSalary, e.PayCycle,
-                e.TRN, e.EmployeeIdNumber, e.BankAccountNumber, e.BankName,
-                e.DateOfBirth, e.Address, e.Email, e.IsActive
+                e.Id,
+                e.BusinessId,
+                e.Name,
+                nisNumber = e.NISNumber,
+                e.GrossSalary,
+                e.PayCycle,
+                trn = e.TRN,
+                e.EmployeeIdNumber,
+                e.BankAccountNumber,
+                e.BankName,
+                e.DateOfBirth,
+                e.Address,
+                e.Email,
+                e.IsActive
             })
             .ToListAsync();
 

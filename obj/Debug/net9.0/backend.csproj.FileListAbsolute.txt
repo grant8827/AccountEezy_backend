@@ -146,3 +146,4 @@
 /Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/bin/Debug/net9.0/BCrypt.Net-Next.dll
 /Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/obj/Debug/net9.0/backend.sourcelink.json
 /Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/obj/Debug/net9.0/swae.build.ex.cache
+/Users/gregorygrant/Desktop/Websites/dotnet-C-sharp/account eezy/backend/bin/Debug/net9.0/backend.staticwebassets.runtime.json

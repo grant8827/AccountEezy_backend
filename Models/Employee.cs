@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace backend.Models;
 
@@ -12,6 +13,7 @@ public class Employee
     public required string Name { get; set; }
 
     [MaxLength(20)]
+    [JsonPropertyName("nisNumber")]
     public required string NISNumber { get; set; }
 
     public decimal GrossSalary { get; set; }
@@ -21,6 +23,7 @@ public class Employee
 
     // New fields for employee records
     [MaxLength(20)]
+    [JsonPropertyName("trn")]
     public string? TRN { get; set; }
 
     [MaxLength(50)]
