@@ -98,7 +98,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("frontend");
 app.UseStaticFiles();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -138,7 +141,8 @@ static async Task SeedTestAccount(AppDbContext context, UserManager<AppUser> use
         UserName = testEmail,
         Email = testEmail,
         EmailConfirmed = true,
-        BusinessId = testBusiness.Id
+        BusinessId = testBusiness.Id,
+        IsAdmin = true
     };
 
     var result = await userManager.CreateAsync(testUser, testPassword);
