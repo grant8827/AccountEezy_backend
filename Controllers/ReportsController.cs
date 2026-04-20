@@ -30,6 +30,28 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
         var employeeCount = await dbContext.Employees
             .CountAsync(e => e.BusinessId == businessId.Value);
 
+        // Fetch per-employee deductions from processed payroll entries for this month
+        var payrollEntries = await dbContext.PayrollEntries
+            .Include(e => e.Employee)
+            .Include(e => e.Batch)
+            .Where(e => e.Batch!.BusinessId == businessId.Value
+                     && e.Batch.Status != PayrollBatchStatus.Draft
+                     && e.Batch.StartDate.Month == month
+                     && e.Batch.StartDate.Year == year)
+            .OrderBy(e => e.Employee!.Name)
+            .ToListAsync();
+
+        var employeeDeductions = payrollEntries.Select(e => new EmployeeDeductionRow
+        {
+            EmployeeName    = e.Employee?.Name ?? "Unknown",
+            Nis             = e.EmployeeNis,
+            Nht             = e.EmployeeNht,
+            EducationTax    = e.EmployeeEducationTax,
+            Paye            = e.EmployeePaye,
+            LoanDeduction   = e.LoanDeduction,
+            TotalDeductions = e.TotalDeductions
+        }).ToList();
+
         return Ok(new So1ReportResponse
         {
             BusinessId           = businessId.Value,
@@ -52,7 +74,8 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             TotalRemittance      = report.TotalRemittance,
             Status               = report.Status,
             TaxRecordId          = report.TaxRecordId,
-            Financial            = report.Financial
+            Financial            = report.Financial,
+            EmployeeDeductions   = employeeDeductions
         });
     }
 
@@ -71,15 +94,31 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
         var employeeCount = await dbContext.Employees
             .CountAsync(e => e.BusinessId == businessId.Value);
 
-        var monthlyBreakdown = yearly.Months.Select(m => new So2MonthRow
-        {
-            Month             = m.Month,
-            MonthName         = m.MonthName,
-            PayrollRemittance = m.TotalPayrollRemittance,
-            GctPayable        = m.GctPayable,
-            TotalRemittance   = m.TotalRemittance,
-            Status            = m.Status
-        }).ToList();
+        // Only include months where an SO1 was generated (i.e. a processed/paid payroll batch exists)
+        var monthsWithPayroll = await dbContext.PayrollEntries
+            .Include(e => e.Batch)
+            .Where(e => e.Batch!.BusinessId == businessId.Value
+                     && e.Batch.Status != PayrollBatchStatus.Draft
+                     && e.Batch.StartDate.Year == year)
+            .Select(e => e.Batch!.StartDate.Month)
+            .Distinct()
+            .ToListAsync();
+
+        // Filter yearly months to only those with processed payroll
+        var payrollMonths = yearly.Months
+            .Where(m => monthsWithPayroll.Contains(m.Month))
+            .ToList();
+
+        var monthlyBreakdown = payrollMonths
+            .Select(m => new So2MonthRow
+            {
+                Month             = m.Month,
+                MonthName         = m.MonthName,
+                PayrollRemittance = m.TotalPayrollRemittance,
+                GctPayable        = m.GctPayable,
+                TotalRemittance   = m.TotalRemittance,
+                Status            = m.Status
+            }).ToList();
 
         return Ok(new So2ReportResponse
         {
@@ -88,17 +127,17 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             TRN                       = business.TRN,
             Year                      = year,
             EmployeeCount             = employeeCount,
-            TotalNisEmployee          = yearly.TotalNisEmployee,
-            TotalNisEmployer          = yearly.TotalNisEmployer,
-            TotalNhtEmployee          = yearly.TotalNhtEmployee,
-            TotalNhtEmployer          = yearly.TotalNhtEmployer,
-            TotalEducationTaxEmployee = yearly.TotalEducationTaxEmployee,
-            TotalEducationTaxEmployer = yearly.TotalEducationTaxEmployer,
-            TotalPayeEmployee         = yearly.TotalPayeEmployee,
-            TotalHeartEmployer        = yearly.TotalHeartEmployer,
-            TotalPayrollRemittance    = yearly.TotalPayrollRemittance,
-            TotalGctPayable           = yearly.TotalGctPayable,
-            TotalAnnualRemittance     = yearly.TotalRemittance,
+            TotalNisEmployee          = Round2(payrollMonths.Sum(m => m.NisEmployee)),
+            TotalNisEmployer          = Round2(payrollMonths.Sum(m => m.NisEmployer)),
+            TotalNhtEmployee          = Round2(payrollMonths.Sum(m => m.NhtEmployee)),
+            TotalNhtEmployer          = Round2(payrollMonths.Sum(m => m.NhtEmployer)),
+            TotalEducationTaxEmployee = Round2(payrollMonths.Sum(m => m.EducationTaxEmployee)),
+            TotalEducationTaxEmployer = Round2(payrollMonths.Sum(m => m.EducationTaxEmployer)),
+            TotalPayeEmployee         = Round2(payrollMonths.Sum(m => m.PayeEmployee)),
+            TotalHeartEmployer        = Round2(payrollMonths.Sum(m => m.HeartEmployer)),
+            TotalPayrollRemittance    = Round2(payrollMonths.Sum(m => m.TotalPayrollRemittance)),
+            TotalGctPayable           = Round2(payrollMonths.Sum(m => m.GctPayable)),
+            TotalAnnualRemittance     = Round2(payrollMonths.Sum(m => m.TotalRemittance)),
             MonthlyBreakdown          = monthlyBreakdown
         });
     }

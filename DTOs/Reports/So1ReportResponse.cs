@@ -31,4 +31,7 @@ public class So1ReportResponse
 
     // Financial summary (income & expenses from transactions for the month)
     public FinancialSummary? Financial { get; set; }
+
+    // Per-employee deductions from processed payroll batches
+    public List<EmployeeDeductionRow> EmployeeDeductions { get; set; } = [];
 }
