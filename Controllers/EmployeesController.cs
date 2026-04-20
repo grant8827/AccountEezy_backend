@@ -32,6 +32,9 @@ public class EmployeeRequest
     public string? Department { get; set; }
     public DateTime? HireDate { get; set; }
 
+    // Status
+    public bool IsActive { get; set; } = true;
+
     // Employee portal credentials
     public string? Email { get; set; }
     public string? Password { get; set; }
@@ -184,6 +187,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             : null;
         employee.Address = request.Address;
         employee.Email = request.Email;
+        employee.IsActive = request.IsActive;
         employee.EmploymentType = request.EmploymentType;
         employee.VacationDaysBalance = request.VacationDaysBalance;
         employee.Position = request.Position;

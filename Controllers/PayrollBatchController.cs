@@ -140,10 +140,6 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         var newEntries = new List<PayrollEntry>();
         foreach (var emp in employees)
         {
-            // Only include employees whose pay cycle matches the batch pay cycle
-            if (!string.Equals(emp.PayCycle, batch.PayCycle, StringComparison.OrdinalIgnoreCase))
-                continue;
-
             var input = request.Entries.FirstOrDefault(e => e.EmployeeId == emp.Id);
             var holiday = input?.HolidayPay ?? 0m;
             var bonus = input?.Bonus ?? 0m;
@@ -173,7 +169,7 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             {
                 PayrollBatchId = batch.Id,
                 EmployeeId = emp.Id,
-                BaseSalary = emp.GrossSalary,
+                BaseSalary = periodSalary,
                 HolidayPay = holiday,
                 Bonus = bonus,
                 GrossPay = result.GrossMonthlySalary,
@@ -294,5 +290,23 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
     {
         var claim = User.FindFirstValue("businessId");
         return int.TryParse(claim, out var id) ? id : null;
+    }
+
+    private static bool PayCyclesMatch(string? employeePayCycle, string? batchPayCycle)
+    {
+        return NormalizePayCycle(employeePayCycle) == NormalizePayCycle(batchPayCycle);
+    }
+
+    private static string NormalizePayCycle(string? payCycle)
+    {
+        return (payCycle ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "bi-weekly" => "fortnightly",
+            "biweekly" => "fortnightly",
+            "fortnightly" => "fortnightly",
+            "monthly" => "monthly",
+            "weekly" => "weekly",
+            var value => value
+        };
     }
 }
