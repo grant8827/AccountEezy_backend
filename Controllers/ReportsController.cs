@@ -263,21 +263,15 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
         }
         else
         {
-            // Fall back to live calculation from current employee salaries
-            var employees = await dbContext.Employees
-                .Where(e => e.BusinessId == businessId)
-                .ToListAsync();
-
-            var calcs = employees.Select(e => payrollService.Calculate(e.GrossSalary)).ToList();
-
-            nisEmployee   = Round2(calcs.Sum(c => c.EmployeeNis));
-            nisEmployer   = Round2(calcs.Sum(c => c.EmployerNis));
-            nhtEmployee   = Round2(calcs.Sum(c => c.EmployeeNht));
-            nhtEmployer   = Round2(calcs.Sum(c => c.EmployerNht));
-            edTaxEmployee = Round2(calcs.Sum(c => c.EmployeeEducationTax));
-            edTaxEmployer = Round2(calcs.Sum(c => c.EmployerEducationTax));
-            paye          = Round2(calcs.Sum(c => c.EmployeePaye));
-            heart         = Round2(calcs.Sum(c => c.EmployerHeart));
+            // No processed payroll for this month — all payroll deductions are zero
+            nisEmployee   = 0;
+            nisEmployer   = 0;
+            nhtEmployee   = 0;
+            nhtEmployer   = 0;
+            edTaxEmployee = 0;
+            edTaxEmployer = 0;
+            paye          = 0;
+            heart         = 0;
         }
 
         var gctPayable = Round2(await dbContext.Transactions

@@ -23,6 +23,15 @@ public class EmployeeRequest
     public DateTime? DateOfBirth { get; set; }
     public string? Address { get; set; }
 
+    // Employment type and vacation balance
+    public string EmploymentType { get; set; } = "Salary";
+    public decimal VacationDaysBalance { get; set; } = 0m;
+
+    // Position, department, hire date
+    public string? Position { get; set; }
+    public string? Department { get; set; }
+    public DateTime? HireDate { get; set; }
+
     // Employee portal credentials
     public string? Email { get; set; }
     public string? Password { get; set; }
@@ -57,7 +66,12 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                 e.DateOfBirth,
                 e.Address,
                 e.Email,
-                e.IsActive
+                e.IsActive,
+                e.EmploymentType,
+                e.VacationDaysBalance,
+                e.Position,
+                e.Department,
+                e.HireDate
             })
             .ToListAsync();
 
@@ -89,6 +103,13 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             Email = request.Email,
             PasswordHash = !string.IsNullOrEmpty(request.Password)
                 ? BCrypt.Net.BCrypt.HashPassword(request.Password)
+                : null,
+            EmploymentType = request.EmploymentType,
+            VacationDaysBalance = request.VacationDaysBalance,
+            Position = request.Position,
+            Department = request.Department,
+            HireDate = request.HireDate.HasValue
+                ? DateTime.SpecifyKind(request.HireDate.Value, DateTimeKind.Utc)
                 : null
         };
 
@@ -115,9 +136,25 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
 
         return CreatedAtAction(nameof(GetAll), new { id = employee.Id }, new
         {
-            employee.Id, employee.Name, employee.NISNumber, employee.GrossSalary, employee.PayCycle,
-            employee.TRN, employee.EmployeeIdNumber, employee.BankAccountNumber, employee.BankName,
-            employee.DateOfBirth, employee.Address, employee.Email, employee.IsActive
+            employee.Id,
+            employee.BusinessId,
+            employee.Name,
+            nisNumber = employee.NISNumber,
+            grossSalary = employee.GrossSalary,
+            payCycle = employee.PayCycle,
+            trn = employee.TRN,
+            employeeIdNumber = employee.EmployeeIdNumber,
+            bankAccountNumber = employee.BankAccountNumber,
+            bankName = employee.BankName,
+            dateOfBirth = employee.DateOfBirth,
+            address = employee.Address,
+            email = employee.Email,
+            isActive = employee.IsActive,
+            employmentType = employee.EmploymentType,
+            vacationDaysBalance = employee.VacationDaysBalance,
+            position = employee.Position,
+            department = employee.Department,
+            hireDate = employee.HireDate
         });
     }
 
@@ -147,6 +184,13 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             : null;
         employee.Address = request.Address;
         employee.Email = request.Email;
+        employee.EmploymentType = request.EmploymentType;
+        employee.VacationDaysBalance = request.VacationDaysBalance;
+        employee.Position = request.Position;
+        employee.Department = request.Department;
+        employee.HireDate = request.HireDate.HasValue
+            ? DateTime.SpecifyKind(request.HireDate.Value, DateTimeKind.Utc)
+            : null;
 
         // Only update password if a new one is provided
         if (!string.IsNullOrEmpty(request.Password))

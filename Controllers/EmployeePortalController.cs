@@ -57,12 +57,17 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
     }
 
     // ── GET /api/employee-portal/leaves ──────────────────────────────────────
-    /// Returns this employee's own leave requests, ordered newest first.
+    /// Returns this employee's own leave requests plus their vacation days balance.
     [HttpGet("leaves")]
     public async Task<ActionResult> GetLeaves()
     {
         var employeeId = GetEmployeeId();
         if (employeeId is null) return Unauthorized();
+
+        var vacationDaysBalance = await dbContext.Employees
+            .Where(e => e.Id == employeeId.Value)
+            .Select(e => (decimal?)e.VacationDaysBalance)
+            .FirstOrDefaultAsync() ?? 0m;
 
         var leaves = await dbContext.LeaveRequests
             .Where(lr => lr.EmployeeId == employeeId.Value)
@@ -81,7 +86,7 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(leaves);
+        return Ok(new { vacationDaysBalance, leaves });
     }
 
     // ── GET /api/employee-portal/notices ─────────────────────────────────────

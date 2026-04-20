@@ -23,6 +23,7 @@ public class BatchEntryInput
     public decimal HolidayPay { get; set; } = 0m;
     public decimal Bonus { get; set; } = 0m;
     public decimal LoanDeduction { get; set; } = 0m;
+    public decimal? Hours { get; set; } // Required for hourly employees
 }
 
 public class ProcessBatchRequest
@@ -148,13 +149,23 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             var bonus = input?.Bonus ?? 0m;
             var loan = input?.LoanDeduction ?? 0m;
 
-            // Convert monthly salary to the effective pay-period salary before calculating
-            var periodSalary = batch.PayCycle.ToLower() switch
+            decimal periodSalary;
+            if (string.Equals(emp.EmploymentType, "Hourly", StringComparison.OrdinalIgnoreCase))
             {
-                "weekly"      => emp.GrossSalary / 4.333m,
-                "fortnightly" => emp.GrossSalary / 2m,
-                _             => emp.GrossSalary   // Monthly
-            };
+                // Hourly: salary = hours worked × hourly rate (direct — no monthly division)
+                var hours = input?.Hours ?? 0m;
+                periodSalary = hours * emp.GrossSalary;
+            }
+            else
+            {
+                // Salary: convert monthly rate to pay-period rate
+                periodSalary = batch.PayCycle.ToLower() switch
+                {
+                    "weekly"      => emp.GrossSalary / 4.333m,
+                    "fortnightly" => emp.GrossSalary / 2m,
+                    _             => emp.GrossSalary   // Monthly
+                };
+            }
 
             var result = payrollService.CalculateWithConfig(periodSalary, holiday, bonus, loan, taxConfig);
 

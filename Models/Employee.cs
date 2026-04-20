@@ -49,6 +49,21 @@ public class Employee
 
     public bool IsActive { get; set; } = true;
 
+    [MaxLength(100)]
+    public string? Position { get; set; }
+
+    [MaxLength(100)]
+    public string? Department { get; set; }
+
+    public DateTime? HireDate { get; set; }
+
+    // Employment type: "Salary" or "Hourly"
+    [MaxLength(20)]
+    public string EmploymentType { get; set; } = "Salary";
+
+    // Vacation days remaining balance (deducted on approved leave)
+    public decimal VacationDaysBalance { get; set; } = 0m;
+
     // Navigation property for leave requests
     public ICollection<LeaveRequest>? LeaveRequests { get; set; }
 }

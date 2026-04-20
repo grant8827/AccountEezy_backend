@@ -105,6 +105,15 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
             return Unauthorized("Employee authentication required");
         }
 
+        // Vacation balance check
+        if (string.Equals(request.LeaveType, "Vacation", StringComparison.OrdinalIgnoreCase))
+        {
+            var emp = await dbContext.Employees.FindAsync(employeeId);
+            if (emp is null) return NotFound();
+            if (emp.VacationDaysBalance < request.DaysRequested)
+                return BadRequest(new { error = "You don't have sufficient vacation days." });
+        }
+
         var leaveRequest = new LeaveRequest
         {
             EmployeeId = employeeId,
@@ -190,22 +199,26 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         var businessId = GetBusinessId();
         if (businessId is null) return Unauthorized("Admin access required");
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var reviewerId))
-        {
-            return Unauthorized();
-        }
-
         var leaveRequest = await dbContext.LeaveRequests
             .Include(lr => lr.Employee)
             .FirstOrDefaultAsync(lr => lr.Id == id && lr.Employee!.BusinessId == businessId.Value);
 
         if (leaveRequest is null) return NotFound();
 
+        var previousStatus = leaveRequest.Status;
         leaveRequest.Status = approval.Status;
         leaveRequest.AdminNotes = approval.AdminNotes;
         leaveRequest.ReviewedOn = DateTime.UtcNow;
-        leaveRequest.ReviewedBy = reviewerId;
+
+        // Deduct vacation days when approving a vacation leave
+        if (string.Equals(approval.Status, "Approved", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(previousStatus, "Approved", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(leaveRequest.LeaveType, "Vacation", StringComparison.OrdinalIgnoreCase) &&
+            leaveRequest.Employee is not null)
+        {
+            leaveRequest.Employee.VacationDaysBalance = Math.Max(
+                0, leaveRequest.Employee.VacationDaysBalance - leaveRequest.DaysRequested);
+        }
 
         await dbContext.SaveChangesAsync();
 
@@ -233,6 +246,14 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         var isAdmin = businessId is not null && leaveRequest.Employee!.BusinessId == businessId.Value;
 
         if (!isEmployee && !isAdmin) return Unauthorized();
+
+        // Restore vacation days if deleting an approved vacation request
+        if (string.Equals(leaveRequest.Status, "Approved", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(leaveRequest.LeaveType, "Vacation", StringComparison.OrdinalIgnoreCase) &&
+            leaveRequest.Employee is not null)
+        {
+            leaveRequest.Employee.VacationDaysBalance += leaveRequest.DaysRequested;
+        }
 
         dbContext.LeaveRequests.Remove(leaveRequest);
         await dbContext.SaveChangesAsync();
