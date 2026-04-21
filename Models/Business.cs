@@ -17,6 +17,54 @@ public class Business
 
     public DateTime TrialStartDate { get; set; } = DateTime.UtcNow;
 
+    // Owner / personal info
+    [MaxLength(80)]
+    public string? FirstName { get; set; }
+
+    [MaxLength(80)]
+    public string? LastName { get; set; }
+
+    [MaxLength(30)]
+    public string? Phone { get; set; }
+
+    // Business details
+    [MaxLength(40)]
+    public string? RegistrationNumber { get; set; }
+
+    [MaxLength(20)]
+    public string? NIS { get; set; }
+
+    [MaxLength(40)]
+    public string? BusinessType { get; set; }
+
+    public DateTime? FiscalYearEnd { get; set; }
+
+    // Address
+    [MaxLength(200)]
+    public string? Street { get; set; }
+
+    [MaxLength(80)]
+    public string? City { get; set; }
+
+    [MaxLength(80)]
+    public string? Parish { get; set; }
+
+    [MaxLength(20)]
+    public string? PostalCode { get; set; }
+
+    [MaxLength(80)]
+    public string Country { get; set; } = "Jamaica";
+
+    // Contact
+    [MaxLength(30)]
+    public string? BusinessPhone { get; set; }
+
+    [MaxLength(160)]
+    public string? BusinessEmail { get; set; }
+
+    [MaxLength(200)]
+    public string? Website { get; set; }
+
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
     public ICollection<TransactionEntry> Transactions { get; set; } = new List<TransactionEntry>();
     public ICollection<TaxRecord> TaxRecords { get; set; } = new List<TaxRecord>();
