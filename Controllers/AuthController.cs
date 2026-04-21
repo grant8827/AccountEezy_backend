@@ -269,7 +269,9 @@ public class AuthController(
         business.RegistrationNumber = request.RegistrationNumber;
         business.NIS = request.NIS;
         business.BusinessType = request.BusinessType;
-        business.FiscalYearEnd = request.FiscalYearEnd;
+        business.FiscalYearEnd = request.FiscalYearEnd.HasValue
+            ? DateTime.SpecifyKind(request.FiscalYearEnd.Value, DateTimeKind.Utc)
+            : null;
         business.Street = request.Street;
         business.City = request.City;
         business.Parish = request.Parish;
