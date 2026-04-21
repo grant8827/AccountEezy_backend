@@ -6,7 +6,7 @@ namespace backend.Services;
 public interface IPayrollService
 {
     PayrollResponse Calculate(decimal grossMonthlySalary);
-    PayrollResponse CalculateWithConfig(decimal baseSalary, decimal holidayPay, decimal bonus, decimal loanDeduction, TaxConfiguration config);
+    PayrollResponse CalculateWithConfig(decimal baseSalary, decimal holidayPay, decimal bonus, decimal loanDeduction, TaxConfiguration config, string payCycle = "Monthly");
 }
 
 public class PayrollService : IPayrollService
@@ -20,7 +20,7 @@ public class PayrollService : IPayrollService
     private const decimal DefaultEdTaxRateEmployee = 0.0225m;
     private const decimal DefaultEdTaxRateEmployer = 0.035m;
     private const decimal DefaultHeartRateEmployer = 0.03m;
-    private const decimal DefaultNisAnnualCeiling = 6_000_000m;
+    private const decimal DefaultNisAnnualCeiling = 5_000_000m;
     private const decimal DefaultPayeUpperBandAnnual = 6_000_000m;
 
     // Simple calculation using defaults (existing endpoint still works)
@@ -34,14 +34,22 @@ public class PayrollService : IPayrollService
             0.25m, 0.30m);
 
     // Full calculation using stored TaxConfiguration
-    public PayrollResponse CalculateWithConfig(decimal baseSalary, decimal holidayPay, decimal bonus, decimal loanDeduction, TaxConfiguration cfg)
-        => CalculateCore(baseSalary, holidayPay, bonus, loanDeduction,
+    public PayrollResponse CalculateWithConfig(decimal baseSalary, decimal holidayPay, decimal bonus, decimal loanDeduction, TaxConfiguration cfg, string payCycle = "Monthly")
+    {
+        var annualPeriods = (payCycle ?? string.Empty).Trim().ToLower() switch
+        {
+            "weekly"                               => 52,
+            "fortnightly" or "bi-weekly" or "biweekly" => 26,
+            _                                      => 12
+        };
+        return CalculateCore(baseSalary, holidayPay, bonus, loanDeduction,
             cfg.NisRateEmployee, cfg.NisRateEmployer,
             cfg.NhtRateEmployee, cfg.NhtRateEmployer,
             cfg.EducationTaxRateEmployee, cfg.EducationTaxRateEmployer,
             cfg.HeartRateEmployer, cfg.IncomeTaxThresholdAnnual,
             cfg.PayeUpperBandAnnual, cfg.NisAnnualCeiling,
-            cfg.PayeRateLower, cfg.PayeRateUpper);
+            cfg.PayeRateLower, cfg.PayeRateUpper, annualPeriods);
+    }
 
     private static PayrollResponse CalculateCore(
         decimal baseSalary, decimal holidayPay, decimal bonus, decimal loanDeduction,
@@ -49,41 +57,42 @@ public class PayrollService : IPayrollService
         decimal nhtRateEmp, decimal nhtRateEr,
         decimal edTaxRateEmp, decimal edTaxRateEr,
         decimal heartRateEr, decimal thresholdAnnual, decimal payeUpperAnnual,
-        decimal nisAnnualCeiling, decimal payeLower, decimal payeUpper)
+        decimal nisAnnualCeiling, decimal payeLower, decimal payeUpper,
+        int annualPeriods = 12)
     {
-        var grossMonthly = baseSalary + holidayPay + bonus;
-        var grossAnnual = grossMonthly * 12;
+        var grossPeriod = baseSalary + holidayPay + bonus;
+        var grossAnnual = grossPeriod * annualPeriods;
 
-        // NIS (capped)
-        var nisApplicableMonthly = Math.Min(grossAnnual, nisAnnualCeiling) / 12;
-        var employeeNis = Round2(nisApplicableMonthly * nisRateEmp);
-        var employerNis = Round2(nisApplicableMonthly * nisRateEr);
+        // NIS (capped at annual ceiling)
+        var nisApplicablePeriod = Math.Min(grossAnnual, nisAnnualCeiling) / annualPeriods;
+        var employeeNis = Round2(nisApplicablePeriod * nisRateEmp);
+        var employerNis = Round2(nisApplicablePeriod * nisRateEr);
 
         // NHT
-        var employeeNht = Round2(grossMonthly * nhtRateEmp);
-        var employerNht = Round2(grossMonthly * nhtRateEr);
+        var employeeNht = Round2(grossPeriod * nhtRateEmp);
+        var employerNht = Round2(grossPeriod * nhtRateEr);
 
         // Education Tax
-        var employeeEdTax = Round2(grossMonthly * edTaxRateEmp);
-        var employerEdTax = Round2(grossMonthly * edTaxRateEr);
+        var employeeEdTax = Round2(grossPeriod * edTaxRateEmp);
+        var employerEdTax = Round2(grossPeriod * edTaxRateEr);
 
         // HEART (employer only)
-        var employerHeart = Round2(grossMonthly * heartRateEr);
+        var employerHeart = Round2(grossPeriod * heartRateEr);
 
-        // PAYE (two bands)
+        // PAYE (two bands — annualize correctly then divide back to period)
         var taxableAnnual = Math.Max(0, grossAnnual - thresholdAnnual);
         var lowerBandAnnual = Math.Min(taxableAnnual, Math.Max(0, payeUpperAnnual - thresholdAnnual));
         var upperBandAnnual = Math.Max(0, taxableAnnual - lowerBandAnnual);
-        var employeePaye = Round2(((lowerBandAnnual * payeLower) + (upperBandAnnual * payeUpper)) / 12);
+        var employeePaye = Round2(((lowerBandAnnual * payeLower) + (upperBandAnnual * payeUpper)) / annualPeriods);
 
         var statutoryEmployee = Round2(employeeNis + employeeNht + employeeEdTax + employeePaye);
         var totalDeductions = Round2(statutoryEmployee + loanDeduction);
-        var netPay = Round2(grossMonthly - totalDeductions);
+        var netPay = Math.Max(0m, Round2(grossPeriod - totalDeductions));
         var statutoryEmployer = Round2(employerNis + employerNht + employerEdTax + employerHeart);
 
         return new PayrollResponse
         {
-            GrossMonthlySalary = Round2(grossMonthly),
+            GrossMonthlySalary = Round2(grossPeriod),
             BaseSalary = Round2(baseSalary),
             HolidayPay = Round2(holidayPay),
             Bonus = Round2(bonus),

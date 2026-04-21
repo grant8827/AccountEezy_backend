@@ -163,7 +163,7 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
                 };
             }
 
-            var result = payrollService.CalculateWithConfig(periodSalary, holiday, bonus, loan, taxConfig);
+            var result = payrollService.CalculateWithConfig(periodSalary, holiday, bonus, loan, taxConfig, batch.PayCycle);
 
             newEntries.Add(new PayrollEntry
             {
