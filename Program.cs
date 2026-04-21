@@ -96,12 +96,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("frontend");
+app.UseHttpsRedirection();
 app.UseStaticFiles();
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+app.UseRouting();
+app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
