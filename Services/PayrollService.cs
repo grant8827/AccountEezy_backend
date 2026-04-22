@@ -63,26 +63,29 @@ public class PayrollService : IPayrollService
         var grossPeriod = baseSalary + holidayPay + bonus;
         var grossAnnual = grossPeriod * annualPeriods;
 
-        // NIS (capped at annual ceiling)
+        // Step 1: NIS — always first, on Gross, capped at annual ceiling
         var nisApplicablePeriod = Math.Min(grossAnnual, nisAnnualCeiling) / annualPeriods;
         var employeeNis = Round2(nisApplicablePeriod * nisRateEmp);
         var employerNis = Round2(nisApplicablePeriod * nisRateEr);
 
-        // NHT
+        // Step 2: NHT — on Gross
         var employeeNht = Round2(grossPeriod * nhtRateEmp);
         var employerNht = Round2(grossPeriod * nhtRateEr);
 
-        // Education Tax
-        var employeeEdTax = Round2(grossPeriod * edTaxRateEmp);
-        var employerEdTax = Round2(grossPeriod * edTaxRateEr);
+        // Step 3: Education Tax — on Statutory Income (Gross - Employee NIS)
+        var statutoryIncomePeriod = grossPeriod - employeeNis;
+        var employeeEdTax = Round2(statutoryIncomePeriod * edTaxRateEmp);
+        var employerEdTax = Round2(statutoryIncomePeriod * edTaxRateEr);
 
-        // HEART (employer only)
+        // Step 4: HEART — employer only, on Gross
         var employerHeart = Round2(grossPeriod * heartRateEr);
 
-        // PAYE (two bands — annualize correctly then divide back to period)
-        var taxableAnnual = Math.Max(0, grossAnnual - thresholdAnnual);
-        var lowerBandAnnual = Math.Min(taxableAnnual, Math.Max(0, payeUpperAnnual - thresholdAnnual));
-        var upperBandAnnual = Math.Max(0, taxableAnnual - lowerBandAnnual);
+        // Step 5: PAYE — on Chargeable Income (Gross - NIS - Ed Tax - Threshold), annualized
+        var employeeNisAnnual = employeeNis * annualPeriods;
+        var employeeEdTaxAnnual = employeeEdTax * annualPeriods;
+        var chargeableAnnual = Math.Max(0, grossAnnual - employeeNisAnnual - employeeEdTaxAnnual - thresholdAnnual);
+        var lowerBandAnnual = Math.Min(chargeableAnnual, Math.Max(0, payeUpperAnnual - thresholdAnnual));
+        var upperBandAnnual = Math.Max(0, chargeableAnnual - lowerBandAnnual);
         var employeePaye = Round2(((lowerBandAnnual * payeLower) + (upperBandAnnual * payeUpper)) / annualPeriods);
 
         var statutoryEmployee = Round2(employeeNis + employeeNht + employeeEdTax + employeePaye);
