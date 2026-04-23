@@ -243,7 +243,10 @@ public class AuthController(
             Country = business.Country,
             BusinessPhone = business.BusinessPhone,
             BusinessEmail = business.BusinessEmail,
-            Website = business.Website
+            Website = business.Website,
+            LogoUrl = business.LogoUrl is not null
+                ? $"{Request.Scheme}://{Request.Host}{business.LogoUrl}"
+                : null
         });
     }
 
@@ -303,7 +306,10 @@ public class AuthController(
             Country = business.Country,
             BusinessPhone = business.BusinessPhone,
             BusinessEmail = business.BusinessEmail,
-            Website = business.Website
+            Website = business.Website,
+            LogoUrl = business.LogoUrl is not null
+                ? $"{Request.Scheme}://{Request.Host}{business.LogoUrl}"
+                : null
         });
     }
 
@@ -322,6 +328,50 @@ public class AuthController(
         }
 
         return Ok(new { success = true, message = "Password changed successfully." });
+    }
+
+    [HttpPost("upload-logo")]
+    [Authorize]
+    public async Task<IActionResult> UploadLogo(IFormFile logo)
+    {
+        if (logo is null || logo.Length == 0)
+            return BadRequest(new { message = "No file uploaded." });
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowedTypes.Contains(logo.ContentType.ToLowerInvariant()))
+            return BadRequest(new { message = "Only JPEG, PNG, and WebP images are allowed." });
+
+        if (logo.Length > 2 * 1024 * 1024)
+            return BadRequest(new { message = "File size must be 2 MB or less." });
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var appUser = await userManager.FindByIdAsync(userId ?? string.Empty);
+        if (appUser?.BusinessId == null) return Unauthorized();
+
+        var business = await dbContext.Businesses.FindAsync(appUser.BusinessId.Value);
+        if (business is null) return NotFound("Business not found.");
+
+        var ext = logo.ContentType.ToLowerInvariant() switch
+        {
+            "image/jpeg" => ".jpg",
+            "image/png" => ".png",
+            "image/webp" => ".webp",
+            _ => ".jpg"
+        };
+
+        var logosFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "logos");
+        Directory.CreateDirectory(logosFolder);
+        var fileName = $"{appUser.BusinessId.Value}{ext}";
+        var filePath = Path.Combine(logosFolder, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+            await logo.CopyToAsync(stream);
+
+        business.LogoUrl = $"/logos/{fileName}";
+        await dbContext.SaveChangesAsync();
+
+        var fullUrl = $"{Request.Scheme}://{Request.Host}/logos/{fileName}";
+        return Ok(new { logoUrl = fullUrl });
     }
 }
 

@@ -21,6 +21,7 @@ public class ProfileResponse
     public string? BusinessPhone { get; set; }
     public string? BusinessEmail { get; set; }
     public string? Website { get; set; }
+    public string? LogoUrl { get; set; }
 }
 
 public class UpdateProfileRequest

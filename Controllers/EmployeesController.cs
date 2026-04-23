@@ -21,6 +21,7 @@ public class EmployeeRequest
     public string? BankAccountNumber { get; set; }
     public string? BankName { get; set; }
     public DateTime? DateOfBirth { get; set; }
+    public string? PhoneNumber { get; set; }
     public string? Address { get; set; }
 
     // Employment type and vacation balance
@@ -75,6 +76,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                 e.BankAccountNumber,
                 e.BankName,
                 e.DateOfBirth,
+                e.PhoneNumber,
                 e.Address,
                 e.Email,
                 e.IsActive,
@@ -116,6 +118,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             DateOfBirth = request.DateOfBirth.HasValue
                 ? DateTime.SpecifyKind(request.DateOfBirth.Value, DateTimeKind.Utc)
                 : null,
+            PhoneNumber = request.PhoneNumber,
             Address = request.Address,
             Email = request.Email,
             PasswordHash = !string.IsNullOrEmpty(request.Password)
@@ -170,6 +173,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             bankAccountNumber = employee.BankAccountNumber,
             bankName = employee.BankName,
             dateOfBirth = employee.DateOfBirth,
+            phoneNumber = employee.PhoneNumber,
             address = employee.Address,
             email = employee.Email,
             isActive = employee.IsActive,
@@ -211,6 +215,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         employee.DateOfBirth = request.DateOfBirth.HasValue
             ? DateTime.SpecifyKind(request.DateOfBirth.Value, DateTimeKind.Utc)
             : null;
+        employee.PhoneNumber = request.PhoneNumber;
         employee.Address = request.Address;
         employee.Email = request.Email;
         employee.IsActive = request.IsActive;

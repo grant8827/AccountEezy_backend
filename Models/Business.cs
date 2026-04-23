@@ -65,6 +65,9 @@ public class Business
     [MaxLength(200)]
     public string? Website { get; set; }
 
+    [MaxLength(500)]
+    public string? LogoUrl { get; set; }
+
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
     public ICollection<TransactionEntry> Transactions { get; set; } = new List<TransactionEntry>();
     public ICollection<TaxRecord> TaxRecords { get; set; } = new List<TaxRecord>();

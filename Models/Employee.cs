@@ -37,6 +37,9 @@ public class Employee
 
     public DateTime? DateOfBirth { get; set; }
 
+    [MaxLength(20)]
+    public string? PhoneNumber { get; set; }
+
     [MaxLength(250)]
     public string? Address { get; set; }
 
