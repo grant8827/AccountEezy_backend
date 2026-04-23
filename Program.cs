@@ -29,6 +29,8 @@ builder.Services.AddIdentityCore<AppUser>(options =>
 var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
           ?? throw new InvalidOperationException("JWT configuration is missing.");
 
+if (string.IsNullOrWhiteSpace(jwt.Key))
+    throw new InvalidOperationException("JWT Key is not configured. Set the Jwt__Key environment variable.");
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
