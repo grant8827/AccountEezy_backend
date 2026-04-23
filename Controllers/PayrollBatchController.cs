@@ -85,7 +85,7 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
                 address       = string.Join(", ", new[] { batch.Business.Street, batch.Business.City, batch.Business.Parish }.Where(s => !string.IsNullOrWhiteSpace(s))),
                 businessEmail = batch.Business.BusinessEmail,
                 businessPhone = batch.Business.BusinessPhone,
-                logoUrl       = batch.Business.LogoUrl
+                logoUrl       = batch.Business.LogoUrl != null ? $"{Request.Scheme}://{Request.Host}{batch.Business.LogoUrl}" : null
             },
             entries = batch.Entries.Select(e => new {
                 id         = e.Id,

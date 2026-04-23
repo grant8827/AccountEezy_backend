@@ -65,7 +65,7 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
             businessAddress    = string.Join(", ", new[] { e.Employee?.Business?.Street, e.Employee?.Business?.City, e.Employee?.Business?.Parish }.Where(s => !string.IsNullOrWhiteSpace(s))),
             businessEmail      = e.Employee?.Business?.BusinessEmail,
             businessPhone      = e.Employee?.Business?.BusinessPhone,
-            businessLogoUrl    = e.Employee?.Business?.LogoUrl
+            businessLogoUrl    = e.Employee?.Business?.LogoUrl != null ? $"{Request.Scheme}://{Request.Host}{e.Employee.Business.LogoUrl}" : null
         }).ToList();
 
         return Ok(entries);
