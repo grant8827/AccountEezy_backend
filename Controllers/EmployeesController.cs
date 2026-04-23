@@ -38,6 +38,14 @@ public class EmployeeRequest
     // Employee portal credentials
     public string? Email { get; set; }
     public string? Password { get; set; }
+
+    // YTD opening balances (editable on both create and edit)
+    public decimal YtdGross { get; set; } = 0m;
+    public decimal YtdNis { get; set; } = 0m;
+    public decimal YtdNht { get; set; } = 0m;
+    public decimal YtdEducationTax { get; set; } = 0m;
+    public decimal YtdPaye { get; set; } = 0m;
+    public decimal YtdTotalDeductions { get; set; } = 0m;
 }
 
 [ApiController]
@@ -74,7 +82,13 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                 e.VacationDaysBalance,
                 e.Position,
                 e.Department,
-                e.HireDate
+                e.HireDate,
+                e.YtdGross,
+                e.YtdNis,
+                e.YtdNht,
+                e.YtdEducationTax,
+                e.YtdPaye,
+                e.YtdTotalDeductions
             })
             .ToListAsync();
 
@@ -113,7 +127,13 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             Department = request.Department,
             HireDate = request.HireDate.HasValue
                 ? DateTime.SpecifyKind(request.HireDate.Value, DateTimeKind.Utc)
-                : null
+                : null,
+            YtdGross = request.YtdGross,
+            YtdNis = request.YtdNis,
+            YtdNht = request.YtdNht,
+            YtdEducationTax = request.YtdEducationTax,
+            YtdPaye = request.YtdPaye,
+            YtdTotalDeductions = request.YtdTotalDeductions
         };
 
         dbContext.Employees.Add(employee);
@@ -157,7 +177,13 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             vacationDaysBalance = employee.VacationDaysBalance,
             position = employee.Position,
             department = employee.Department,
-            hireDate = employee.HireDate
+            hireDate = employee.HireDate,
+            ytdGross = employee.YtdGross,
+            ytdNis = employee.YtdNis,
+            ytdNht = employee.YtdNht,
+            ytdEducationTax = employee.YtdEducationTax,
+            ytdPaye = employee.YtdPaye,
+            ytdTotalDeductions = employee.YtdTotalDeductions
         });
     }
 
@@ -195,6 +221,12 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         employee.HireDate = request.HireDate.HasValue
             ? DateTime.SpecifyKind(request.HireDate.Value, DateTimeKind.Utc)
             : null;
+        employee.YtdGross = request.YtdGross;
+        employee.YtdNis = request.YtdNis;
+        employee.YtdNht = request.YtdNht;
+        employee.YtdEducationTax = request.YtdEducationTax;
+        employee.YtdPaye = request.YtdPaye;
+        employee.YtdTotalDeductions = request.YtdTotalDeductions;
 
         // Only update password if a new one is provided
         if (!string.IsNullOrEmpty(request.Password))

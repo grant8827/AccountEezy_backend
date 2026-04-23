@@ -208,11 +208,31 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         if (businessId is null) return Unauthorized();
 
         var batch = await dbContext.PayrollBatches
+            .Include(b => b.Entries)
             .FirstOrDefaultAsync(b => b.Id == id && b.BusinessId == businessId.Value);
 
         if (batch is null) return NotFound();
         if (batch.Status != PayrollBatchStatus.Processed)
             return BadRequest(new { message = "Batch must be processed before marking as paid." });
+
+        // Accumulate YTD totals on each employee
+        var employeeIds = batch.Entries.Select(e => e.EmployeeId).Distinct().ToList();
+        var employees = await dbContext.Employees
+            .Where(e => employeeIds.Contains(e.Id))
+            .ToListAsync();
+
+        foreach (var entry in batch.Entries)
+        {
+            var employee = employees.FirstOrDefault(e => e.Id == entry.EmployeeId);
+            if (employee is null) continue;
+
+            employee.YtdGross += entry.GrossPay;
+            employee.YtdNis += entry.EmployeeNis;
+            employee.YtdNht += entry.EmployeeNht;
+            employee.YtdEducationTax += entry.EmployeeEducationTax;
+            employee.YtdPaye += entry.EmployeePaye;
+            employee.YtdTotalDeductions += entry.TotalDeductions;
+        }
 
         batch.Status = PayrollBatchStatus.Paid;
         await dbContext.SaveChangesAsync();

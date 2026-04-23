@@ -64,6 +64,14 @@ public class Employee
     // Vacation days remaining balance (deducted on approved leave)
     public decimal VacationDaysBalance { get; set; } = 0m;
 
+    // Year-to-date accumulators (updated on each mark-paid)
+    public decimal YtdGross { get; set; } = 0m;
+    public decimal YtdNis { get; set; } = 0m;
+    public decimal YtdNht { get; set; } = 0m;
+    public decimal YtdEducationTax { get; set; } = 0m;
+    public decimal YtdPaye { get; set; } = 0m;
+    public decimal YtdTotalDeductions { get; set; } = 0m;
+
     // Navigation property for leave requests
     public ICollection<LeaveRequest>? LeaveRequests { get; set; }
 }
