@@ -19,39 +19,54 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
         var employeeId = GetEmployeeId();
         if (employeeId is null) return Unauthorized();
 
-        var entries = await dbContext.PayrollEntries
+        var rawEntries = await dbContext.PayrollEntries
             .Include(e => e.Batch)
+            .Include(e => e.Employee)
+                .ThenInclude(emp => emp!.Business)
             .Where(e =>
                 e.EmployeeId == employeeId.Value &&
                 e.Batch != null &&
                 e.Batch.Status != 0) // exclude Draft batches
             .OrderByDescending(e => e.Batch!.StartDate)
-            .Select(e => new
-            {
-                id              = e.Id,
-                batchId         = e.PayrollBatchId,
-                period          = e.Batch!.Label,
-                payCycle        = e.Batch.PayCycle,
-                startDate       = e.Batch.StartDate,
-                endDate         = e.Batch.EndDate,
-                batchStatus     = e.Batch.Status,
-                baseSalary      = e.BaseSalary,
-                holidayPay      = e.HolidayPay,
-                bonus           = e.Bonus,
-                grossPay        = e.GrossPay,
-                employeeNis     = e.EmployeeNis,
-                employeeNht     = e.EmployeeNht,
-                employeeEdTax   = e.EmployeeEducationTax,
-                employeePaye    = e.EmployeePaye,
-                loanDeduction   = e.LoanDeduction,
-                employerNis     = e.EmployerNis,
-                employerNht     = e.EmployerNht,
-                employerEdTax   = e.EmployerEducationTax,
-                employerHeart   = e.EmployerHeart,
-                deductions      = e.TotalDeductions,
-                netPay          = e.NetPay
-            })
             .ToListAsync();
+
+        var entries = rawEntries.Select(e => new
+        {
+            id              = e.Id,
+            batchId         = e.PayrollBatchId,
+            period          = e.Batch!.Label,
+            payCycle        = e.Batch.PayCycle,
+            startDate       = e.Batch.StartDate,
+            endDate         = e.Batch.EndDate,
+            batchStatus     = e.Batch.Status,
+            baseSalary      = e.BaseSalary,
+            holidayPay      = e.HolidayPay,
+            bonus           = e.Bonus,
+            grossPay        = e.GrossPay,
+            employeeNis     = e.EmployeeNis,
+            employeeNht     = e.EmployeeNht,
+            employeeEdTax   = e.EmployeeEducationTax,
+            employeePaye    = e.EmployeePaye,
+            loanDeduction   = e.LoanDeduction,
+            employerNis     = e.EmployerNis,
+            employerNht     = e.EmployerNht,
+            employerEdTax   = e.EmployerEducationTax,
+            employerHeart   = e.EmployerHeart,
+            deductions      = e.TotalDeductions,
+            netPay          = e.NetPay,
+            ytdGross           = e.Employee?.YtdGross ?? 0m,
+            ytdNis             = e.Employee?.YtdNis ?? 0m,
+            ytdNht             = e.Employee?.YtdNht ?? 0m,
+            ytdEdTax           = e.Employee?.YtdEducationTax ?? 0m,
+            ytdPaye            = e.Employee?.YtdPaye ?? 0m,
+            ytdTotalDeductions = e.Employee?.YtdTotalDeductions ?? 0m,
+            position           = e.Employee?.Position,
+            businessName       = e.Employee?.Business?.CompanyName,
+            businessAddress    = string.Join(", ", new[] { e.Employee?.Business?.Street, e.Employee?.Business?.City, e.Employee?.Business?.Parish }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            businessEmail      = e.Employee?.Business?.BusinessEmail,
+            businessPhone      = e.Employee?.Business?.BusinessPhone,
+            businessLogoUrl    = e.Employee?.Business?.LogoUrl
+        }).ToList();
 
         return Ok(entries);
     }

@@ -67,12 +67,59 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         if (businessId is null) return Unauthorized();
 
         var batch = await dbContext.PayrollBatches
+            .Include(b => b.Business)
             .Include(b => b.Entries)
             .ThenInclude(e => e.Employee)
             .FirstOrDefaultAsync(b => b.Id == id && b.BusinessId == businessId.Value);
 
         if (batch is null) return NotFound();
-        return Ok(batch);
+        return Ok(new {
+            id        = batch.Id,
+            label     = batch.Label,
+            payCycle  = batch.PayCycle,
+            startDate = batch.StartDate,
+            endDate   = batch.EndDate,
+            status    = batch.Status,
+            business  = new {
+                companyName   = batch.Business!.CompanyName,
+                address       = string.Join(", ", new[] { batch.Business.Street, batch.Business.City, batch.Business.Parish }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                businessEmail = batch.Business.BusinessEmail,
+                businessPhone = batch.Business.BusinessPhone,
+                logoUrl       = batch.Business.LogoUrl
+            },
+            entries = batch.Entries.Select(e => new {
+                id         = e.Id,
+                employeeId = e.EmployeeId,
+                employee   = new {
+                    id                 = e.Employee!.Id,
+                    name               = e.Employee.Name,
+                    nisNumber          = e.Employee.NISNumber,
+                    position           = e.Employee.Position,
+                    ytdGross           = e.Employee.YtdGross,
+                    ytdNis             = e.Employee.YtdNis,
+                    ytdNht             = e.Employee.YtdNht,
+                    ytdEducationTax    = e.Employee.YtdEducationTax,
+                    ytdPaye            = e.Employee.YtdPaye,
+                    ytdTotalDeductions = e.Employee.YtdTotalDeductions
+                },
+                baseSalary               = e.BaseSalary,
+                holidayPay               = e.HolidayPay,
+                bonus                    = e.Bonus,
+                grossPay                 = e.GrossPay,
+                employeeNis              = e.EmployeeNis,
+                employeeNht              = e.EmployeeNht,
+                employeeEducationTax     = e.EmployeeEducationTax,
+                employeePaye             = e.EmployeePaye,
+                loanDeduction            = e.LoanDeduction,
+                employerNis              = e.EmployerNis,
+                employerNht              = e.EmployerNht,
+                employerEducationTax     = e.EmployerEducationTax,
+                employerHeart            = e.EmployerHeart,
+                totalStatutoryDeductions = e.TotalStatutoryDeductions,
+                totalDeductions          = e.TotalDeductions,
+                netPay                   = e.NetPay
+            })
+        });
     }
 
     // ── CREATE a new pay period (PAY-2) ───────────────────────────────────────
