@@ -34,7 +34,8 @@ public class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
-            new(ClaimTypes.Role, user.IsAdmin ? "Admin" : "Employee")
+            new(ClaimTypes.Role, user.IsSuperAdmin ? "SuperAdmin" : user.IsAdmin ? "Admin" : "Employee"),
+            new("isSuperAdmin", user.IsSuperAdmin.ToString().ToLower())
         };
 
         if (user.BusinessId is not null)

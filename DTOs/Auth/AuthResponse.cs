@@ -26,4 +26,5 @@ public class UserData
     public int? EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
     public bool IsAdmin { get; set; }
+    public bool IsSuperAdmin { get; set; }
 }

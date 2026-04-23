@@ -63,6 +63,7 @@ public class AuthController(
         var trialStart = DateTime.UtcNow;
         var business = new Business
         {
+            Status = "Pending",  // Must be approved by super-admin before login
             CompanyName = request.BusinessName,
             TRN = request.TRN,
             Sector = request.Industry ?? request.BusinessType ?? "General",
@@ -91,30 +92,11 @@ public class AuthController(
         user.BusinessId = (int)business.Id;
         await userManager.UpdateAsync(user);
 
-        // Generate JWT token
-        var (token, expiresAt) = jwtTokenService.Generate(user);
-
-        var trialExpiresAt = business.TrialStartDate.AddYears(100); // Trial disabled during development
+        // Registration complete — account is pending super-admin approval
         return Ok(new AuthResponse
         {
             Success = true,
-            Message = "Registration successful",
-            Data = new AuthData
-            {
-                User = new UserData
-                {
-                    Email = user.Email ?? request.Email,
-                    BusinessId = (int)business.Id,
-                    BusinessName = business.CompanyName,
-                    ExpiresAtUtc = expiresAt,
-                    TrialStartDate = business.TrialStartDate,
-                    TrialExpiresAt = trialExpiresAt,
-                    IsTrialExpired = DateTime.UtcNow > trialExpiresAt,
-                    IsAdmin = true,
-                    IsEmployee = false
-                },
-                Token = token
-            }
+            Message = "Registration successful. Your account is pending approval. You will be notified once it is activated."
         });
     }
 
@@ -170,11 +152,55 @@ public class AuthController(
             });
         }
 
+        // Super-admin bypasses all business checks
+        if (user.IsSuperAdmin)
+        {
+            var (saToken, saExpires) = jwtTokenService.Generate(user);
+            return Ok(new AuthResponse
+            {
+                Success = true,
+                Message = "Login successful",
+                Data = new AuthData
+                {
+                    User = new UserData
+                    {
+                        Email = user.Email ?? request.Email,
+                        ExpiresAtUtc = saExpires,
+                        TrialStartDate = DateTime.UtcNow,
+                        TrialExpiresAt = DateTime.UtcNow.AddYears(100),
+                        IsTrialExpired = false,
+                        IsEmployee = false,
+                        IsAdmin = false,
+                        IsSuperAdmin = true
+                    },
+                    Token = saToken
+                }
+            });
+        }
+
         // Get business details using BusinessId
         var business = user.BusinessId.HasValue 
             ? await dbContext.Businesses
                 .FirstOrDefaultAsync(b => b.Id == user.BusinessId.Value)
             : null;
+
+        // Block access if business is not Active
+        if (business is not null && business.Status == "Pending")
+        {
+            return Ok(new AuthResponse
+            {
+                Success = false,
+                Message = "Your account is pending approval. Please contact support."
+            });
+        }
+        if (business is not null && business.Status == "Suspended")
+        {
+            return Ok(new AuthResponse
+            {
+                Success = false,
+                Message = "Your account has been suspended. Please contact support."
+            });
+        }
 
         // Check if this user is an employee (not a business owner)
         var employee = await dbContext.Employees
@@ -202,7 +228,8 @@ public class AuthController(
                     IsEmployee = employee is not null,
                     EmployeeId = employee?.Id,
                     EmployeeName = employee?.Name,
-                    IsAdmin = user.IsAdmin
+                    IsAdmin = user.IsAdmin,
+                    IsSuperAdmin = false
                 },
                 Token = token
             }

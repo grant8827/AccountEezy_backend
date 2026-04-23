@@ -68,6 +68,10 @@ public class Business
     [MaxLength(500)]
     public string? LogoUrl { get; set; }
 
+    // Platform status: "Pending", "Active", "Suspended"
+    [MaxLength(20)]
+    public string Status { get; set; } = "Pending";
+
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
     public ICollection<TransactionEntry> Transactions { get; set; } = new List<TransactionEntry>();
     public ICollection<TaxRecord> TaxRecords { get; set; } = new List<TaxRecord>();
