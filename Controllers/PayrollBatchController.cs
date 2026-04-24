@@ -14,6 +14,7 @@ public class CreateBatchRequest
     public required string PayCycle { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
+    public DateTime? PayDate { get; set; }
     public string Label { get; set; } = string.Empty;
 }
 
@@ -45,10 +46,10 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
 
         var batches = await dbContext.PayrollBatches
             .Where(b => b.BusinessId == businessId.Value)
-            .OrderByDescending(b => b.StartDate)
+            .OrderByDescending(b => b.PayDate ?? b.EndDate)
             .Select(b => new
             {
-                b.Id, b.Label, b.PayCycle, b.StartDate, b.EndDate, b.Status, b.CreatedAt,
+                b.Id, b.Label, b.PayCycle, b.StartDate, b.EndDate, b.PayDate, b.Status, b.CreatedAt,
                 EmployeeCount = b.Entries.Count,
                 TotalNet = b.Entries.Sum(e => (decimal?)e.NetPay) ?? 0m,
                 TotalRemittance = b.Entries.Sum(e => (decimal?)(e.EmployeeNis + e.EmployeeNht + e.EmployeeEducationTax + e.EmployeePaye
@@ -145,8 +146,9 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             PayCycle = request.PayCycle,
             StartDate = request.StartDate.ToUniversalTime(),
             EndDate = request.EndDate.ToUniversalTime(),
+            PayDate = request.PayDate.HasValue ? request.PayDate.Value.ToUniversalTime() : null,
             Label = string.IsNullOrWhiteSpace(request.Label)
-                ? $"{request.PayCycle} – {request.StartDate:MMM yyyy}"
+                ? $"{request.PayCycle} – {(request.PayDate ?? request.EndDate):MMM yyyy}"
                 : request.Label,
             Status = PayrollBatchStatus.Draft
         };

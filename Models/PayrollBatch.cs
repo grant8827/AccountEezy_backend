@@ -20,6 +20,7 @@ public class PayrollBatch
 
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
+    public DateTime? PayDate { get; set; }
 
     [MaxLength(30)]
     public string Label { get; set; } = string.Empty;
