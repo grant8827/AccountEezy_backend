@@ -36,8 +36,8 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             .Include(e => e.Batch)
             .Where(e => e.Batch!.BusinessId == businessId.Value
                      && e.Batch.Status != PayrollBatchStatus.Draft
-                     && e.Batch.StartDate.Month == month
-                     && e.Batch.StartDate.Year == year)
+                     && (e.Batch.PayDate ?? e.Batch.EndDate).Month == month
+                     && (e.Batch.PayDate ?? e.Batch.EndDate).Year == year)
             .OrderBy(e => e.Employee!.Name)
             .ToListAsync();
 
@@ -99,8 +99,8 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             .Include(e => e.Batch)
             .Where(e => e.Batch!.BusinessId == businessId.Value
                      && e.Batch.Status != PayrollBatchStatus.Draft
-                     && e.Batch.StartDate.Year == year)
-            .Select(e => e.Batch!.StartDate.Month)
+                     && (e.Batch.PayDate ?? e.Batch.EndDate).Year == year)
+            .Select(e => (e.Batch!.PayDate ?? e.Batch.EndDate).Month)
             .Distinct()
             .ToListAsync();
 
@@ -243,8 +243,8 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             .Include(e => e.Batch)
             .Where(e => e.Batch!.BusinessId == businessId
                      && e.Batch.Status != PayrollBatchStatus.Draft
-                     && e.Batch.StartDate.Month == month
-                     && e.Batch.StartDate.Year == year)
+                     && (e.Batch.PayDate ?? e.Batch.EndDate).Month == month
+                     && (e.Batch.PayDate ?? e.Batch.EndDate).Year == year)
             .ToListAsync();
 
         decimal nisEmployee, nisEmployer, nhtEmployee, nhtEmployer,
