@@ -284,6 +284,24 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         }
 
         batch.Status = PayrollBatchStatus.Paid;
+
+        // Auto-create an Expense transaction for the gross payroll cost
+        var totalGross = batch.Entries.Sum(e => e.GrossPay);
+        var payrollTransaction = new TransactionEntry
+        {
+            BusinessId    = businessId.Value,
+            Amount        = totalGross,
+            Type          = TransactionType.Expense,
+            Category      = "Payroll",
+            Description   = $"Payroll: {batch.Label}",
+            Date          = (batch.PayDate ?? batch.EndDate).ToUniversalTime(),
+            Frequency     = TransactionFrequency.Monthly,
+            Status        = TransactionStatus.Cleared,
+            GctApplicable = false,
+            GctAmount     = 0m
+        };
+        dbContext.Transactions.Add(payrollTransaction);
+
         await dbContext.SaveChangesAsync();
         return Ok(new { message = "Batch marked as paid." });
     }
