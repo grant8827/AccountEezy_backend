@@ -151,8 +151,10 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
             .Select(e => new
             {
                 e.Id,
-                name  = e.Name,
-                e.Email
+                name       = e.Name,
+                e.Email,
+                position   = e.Position,
+                department = e.Department
             })
             .FirstOrDefaultAsync();
 
