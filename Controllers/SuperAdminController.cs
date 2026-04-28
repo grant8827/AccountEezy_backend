@@ -31,8 +31,8 @@ public class SuperAdminController(
     [HttpGet("businesses")]
     public async Task<IActionResult> GetBusinesses()
     {
+        // Query 1: businesses with employee counts (fully SQL-translated)
         var businesses = await dbContext.Businesses
-            .Include(b => b.Employees)
             .OrderByDescending(b => b.TrialStartDate)
             .Select(b => new
             {
@@ -52,31 +52,31 @@ public class SuperAdminController(
             })
             .ToListAsync();
 
-        // Attach the owner's email from AppUser
-        var result = new List<object>();
-        foreach (var biz in businesses)
-        {
-            var owner = await dbContext.Users
-                .FirstOrDefaultAsync(u => u.BusinessId == biz.Id && u.IsAdmin);
+        // Query 2: all admin emails in one round-trip (no N+1)
+        var bizIds = businesses.Select(b => b.Id).ToList();
+        var ownerEmails = await dbContext.Users
+            .Where(u => u.BusinessId.HasValue && bizIds.Contains(u.BusinessId.Value) && u.IsAdmin)
+            .Select(u => new { u.BusinessId, u.Email })
+            .ToDictionaryAsync(u => u.BusinessId!.Value, u => u.Email);
 
-            result.Add(new
-            {
-                biz.Id,
-                biz.CompanyName,
-                biz.TRN,
-                biz.Sector,
-                biz.BusinessType,
-                biz.Status,
-                biz.TrialStartDate,
-                biz.BusinessEmail,
-                biz.BusinessPhone,
-                biz.Parish,
-                biz.Country,
-                biz.OwnerName,
-                biz.EmployeeCount,
-                OwnerEmail = owner?.Email
-            });
-        }
+        // Join in memory
+        var result = businesses.Select(b => new
+        {
+            b.Id,
+            b.CompanyName,
+            b.TRN,
+            b.Sector,
+            b.BusinessType,
+            b.Status,
+            b.TrialStartDate,
+            b.BusinessEmail,
+            b.BusinessPhone,
+            b.Parish,
+            b.Country,
+            b.OwnerName,
+            b.EmployeeCount,
+            OwnerEmail = ownerEmails.GetValueOrDefault(b.Id)
+        }).ToList();
 
         return Ok(result);
     }

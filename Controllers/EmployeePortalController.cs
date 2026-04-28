@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using backend.Data;
+using backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
             .Where(e =>
                 e.EmployeeId == employeeId.Value &&
                 e.Batch != null &&
-                e.Batch.Status != 0) // exclude Draft batches
+                e.Batch.Status == PayrollBatchStatus.Paid) // only show paid batches
             .OrderByDescending(e => e.Batch!.StartDate)
             .ToListAsync();
 
