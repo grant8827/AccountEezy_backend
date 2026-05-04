@@ -64,6 +64,11 @@ public class Employee
     [MaxLength(20)]
     public string EmploymentType { get; set; } = "Salary";
 
+    // Job type: "Full-Time", "Part-Time", or "Contract"
+    // Contract employees are excluded from payroll and statutory remittances
+    [MaxLength(20)]
+    public string JobType { get; set; } = "Full-Time";
+
     // Vacation days remaining balance (deducted on approved leave)
     public decimal VacationDaysBalance { get; set; } = 0m;
 

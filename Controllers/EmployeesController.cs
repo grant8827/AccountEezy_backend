@@ -28,6 +28,9 @@ public class EmployeeRequest
     public string EmploymentType { get; set; } = "Salary";
     public decimal VacationDaysBalance { get; set; } = 0m;
 
+    // Job type: "Full-Time", "Part-Time", or "Contract"
+    public string JobType { get; set; } = "Full-Time";
+
     // Position, department, hire date
     public string? Position { get; set; }
     public string? Department { get; set; }
@@ -81,6 +84,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                 e.Email,
                 e.IsActive,
                 e.EmploymentType,
+                e.JobType,
                 e.VacationDaysBalance,
                 e.Position,
                 e.Department,
@@ -125,6 +129,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
                 ? BCrypt.Net.BCrypt.HashPassword(request.Password)
                 : null,
             EmploymentType = request.EmploymentType,
+            JobType = request.JobType,
             VacationDaysBalance = request.VacationDaysBalance,
             Position = request.Position,
             Department = request.Department,
@@ -178,6 +183,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             email = employee.Email,
             isActive = employee.IsActive,
             employmentType = employee.EmploymentType,
+            jobType = employee.JobType,
             vacationDaysBalance = employee.VacationDaysBalance,
             position = employee.Position,
             department = employee.Department,
@@ -220,6 +226,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         employee.Email = request.Email;
         employee.IsActive = request.IsActive;
         employee.EmploymentType = request.EmploymentType;
+        employee.JobType = request.JobType;
         employee.VacationDaysBalance = request.VacationDaysBalance;
         employee.Position = request.Position;
         employee.Department = request.Department;
