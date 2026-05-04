@@ -30,7 +30,7 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
         // Contract employees are excluded from payroll and remittances
         var employeeCount = await dbContext.Employees
             .CountAsync(e => e.BusinessId == businessId.Value
-                          && !string.Equals(e.JobType, "Contract", StringComparison.OrdinalIgnoreCase));
+                          && e.JobType != "Contract");
 
         // Fetch per-employee deductions from processed payroll entries for this month
         var payrollEntries = await dbContext.PayrollEntries
@@ -96,7 +96,7 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
         // Contract employees are excluded from payroll and remittances
         var employeeCount = await dbContext.Employees
             .CountAsync(e => e.BusinessId == businessId.Value
-                          && !string.Equals(e.JobType, "Contract", StringComparison.OrdinalIgnoreCase));
+                          && e.JobType != "Contract");
 
         // Only include months where an SO1 was generated (i.e. a processed/paid payroll batch exists)
         var monthsWithPayroll = await dbContext.PayrollEntries

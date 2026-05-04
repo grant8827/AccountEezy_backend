@@ -182,7 +182,7 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         // Contract employees are excluded from payroll and statutory remittances
         var employees = await dbContext.Employees
             .Where(e => e.BusinessId == businessId.Value && e.IsActive
-                     && !string.Equals(e.JobType, "Contract", StringComparison.OrdinalIgnoreCase))
+                     && e.JobType != "Contract")
             .ToListAsync();
 
         // Clear previous entries
