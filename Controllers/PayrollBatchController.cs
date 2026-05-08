@@ -178,11 +178,12 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             .FirstOrDefaultAsync(t => t.BusinessId == businessId.Value)
             ?? new TaxConfiguration { BusinessId = businessId.Value };
 
-        // Load all active, non-contract employees for this business
-        // Contract employees are excluded from payroll and statutory remittances
+        // Only process employees included in the submitted entries (unchecked employees are excluded)
+        var requestedIds = request.Entries.Select(e => e.EmployeeId).ToHashSet();
         var employees = await dbContext.Employees
             .Where(e => e.BusinessId == businessId.Value && e.IsActive
-                     && e.JobType != "Contract")
+                     && e.JobType != "Contract"
+                     && requestedIds.Contains(e.Id))
             .ToListAsync();
 
         // Clear previous entries
