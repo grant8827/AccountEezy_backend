@@ -59,7 +59,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("frontend", policy =>
         policy.WithOrigins(
             "http://localhost:4200",
-            "https://accounteezyfrontend-production.up.railway.app")
+            "https://hrbooks360frontend-production.up.railway.app")
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -107,13 +107,13 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "account-eezy-api" }));
+app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "hrbooks360-api" }));
 
 app.Run();
 
 static async Task SeedTestAccount(AppDbContext context, UserManager<AppUser> userManager)
 {
-    const string testEmail = "test@accounteezy.com";
+    const string testEmail = "test@hrbooks360.com";
     const string testPassword = "Test1234";
 
     // Check if test user already exists
@@ -124,16 +124,27 @@ static async Task SeedTestAccount(AppDbContext context, UserManager<AppUser> use
         return;
     }
 
-    // Create test business
-    var testBusiness = new Business
-    {
-        CompanyName = "Test Company Ltd",
-        TRN = "TEST123456",
-        Sector = "Technology"
-    };
+    // Check if test business already exists
+    var existingBusiness = await context.Businesses
+        .FirstOrDefaultAsync(b => b.TRN == "TEST123456");
 
-    context.Businesses.Add(testBusiness);
-    await context.SaveChangesAsync();
+    Business testBusiness;
+    if (existingBusiness != null)
+    {
+        testBusiness = existingBusiness;
+    }
+    else
+    {
+        // Create test business
+        testBusiness = new Business
+        {
+            CompanyName = "Test Company Ltd",
+            TRN = "TEST123456",
+            Sector = "Technology"
+        };
+        context.Businesses.Add(testBusiness);
+        await context.SaveChangesAsync();
+    }
 
     // Create test user
     var testUser = new AppUser

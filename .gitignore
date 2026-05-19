@@ -1,0 +1,25 @@
+## .NET build outputs
+bin/
+obj/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS / Rider
+.vs/
+.idea/
+*.swp
+
+## Environment / secrets
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+## macOS
+.DS_Store
+
+## Logs
+*.log
