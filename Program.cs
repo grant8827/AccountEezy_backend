@@ -60,7 +60,9 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:4200",
             "https://hrbooks360frontend-production.up.railway.app",
-            "https://accounteezyfrontend-production.up.railway.app")
+            "https://accounteezyfrontend-production.up.railway.app",
+            "https://hrbooks360.com",
+            "https://www.hrbooks360.com")
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
