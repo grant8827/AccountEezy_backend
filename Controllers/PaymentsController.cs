@@ -66,6 +66,9 @@ public class PaymentsController(
             new("mode", "subscription"),
             new("success_url", successUrl),
             new("cancel_url", cancelUrl),
+            // Keep users on the hosted Stripe card form instead of Link-first flow.
+            new("payment_method_types[0]", "card"),
+            new("payment_method_collection", "always"),
             new("line_items[0][quantity]", "1"),
             new("metadata[plan]", request.Plan),
             new("metadata[billing]", billing)
