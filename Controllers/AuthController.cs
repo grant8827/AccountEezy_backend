@@ -96,7 +96,21 @@ public class AuthController(
         return Ok(new AuthResponse
         {
             Success = true,
-            Message = "Registration successful. Your account is pending approval. You will be notified once it is activated."
+            Message = "Registration successful. Continue to payment to complete your setup.",
+            Data = new AuthData
+            {
+                Token = string.Empty,
+                User = new UserData
+                {
+                    Email = user.Email ?? request.Email,
+                    BusinessId = (int)business.Id,
+                    BusinessName = business.CompanyName,
+                    TrialStartDate = business.TrialStartDate,
+                    TrialExpiresAt = business.TrialStartDate.AddDays(14),
+                    IsTrialExpired = false,
+                    IsAdmin = true
+                }
+            }
         });
     }
 
@@ -401,4 +415,3 @@ public class AuthController(
         return Ok(new { logoUrl = fullUrl });
     }
 }
-

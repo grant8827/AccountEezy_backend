@@ -72,6 +72,26 @@ public class Business
     [MaxLength(20)]
     public string Status { get; set; } = "Pending";
 
+    [MaxLength(40)]
+    public string SubscriptionStatus { get; set; } = "Incomplete";
+
+    [MaxLength(40)]
+    public string PaymentStatus { get; set; } = "Unpaid";
+
+    [MaxLength(80)]
+    public string? SelectedPlan { get; set; }
+
+    [MaxLength(20)]
+    public string? BillingPeriod { get; set; }
+
+    [MaxLength(120)]
+    public string? StripeCustomerId { get; set; }
+
+    [MaxLength(120)]
+    public string? StripeSubscriptionId { get; set; }
+
+    public DateTime? PaymentCompletedAt { get; set; }
+
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
     public ICollection<TransactionEntry> Transactions { get; set; } = new List<TransactionEntry>();
     public ICollection<TaxRecord> TaxRecords { get; set; } = new List<TaxRecord>();

@@ -53,6 +53,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IPayrollService, PayrollService>();
+builder.Services.AddHttpClient();
 
 builder.Services.AddCors(options =>
 {
