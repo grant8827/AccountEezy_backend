@@ -95,7 +95,6 @@ public class PaymentsController(
 
         if (!string.IsNullOrWhiteSpace(request.CustomerEmail))
         {
-            form.Add(new("customer_email", request.CustomerEmail));
             form.Add(new("metadata[email]", request.CustomerEmail));
         }
 
