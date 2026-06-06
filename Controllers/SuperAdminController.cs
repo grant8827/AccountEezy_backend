@@ -47,7 +47,8 @@ public class SuperAdminController(
                 b.BusinessPhone,
                 b.Parish,
                 b.Country,
-                OwnerName = (b.FirstName + " " + b.LastName).Trim(),
+                b.FirstName,
+                b.LastName,
                 EmployeeCount = b.Employees.Count
             })
             .ToListAsync();
@@ -57,7 +58,11 @@ public class SuperAdminController(
         var ownerEmails = await dbContext.Users
             .Where(u => u.BusinessId.HasValue && bizIds.Contains(u.BusinessId.Value) && u.IsAdmin)
             .Select(u => new { u.BusinessId, u.Email })
-            .ToDictionaryAsync(u => u.BusinessId!.Value, u => u.Email);
+            .ToListAsync();
+
+        var ownerEmailByBusinessId = ownerEmails
+            .GroupBy(u => u.BusinessId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(u => u.Email).FirstOrDefault());
 
         // Join in memory
         var result = businesses.Select(b => new
@@ -73,9 +78,9 @@ public class SuperAdminController(
             b.BusinessPhone,
             b.Parish,
             b.Country,
-            b.OwnerName,
+            OwnerName = $"{b.FirstName} {b.LastName}".Trim(),
             b.EmployeeCount,
-            OwnerEmail = ownerEmails.GetValueOrDefault(b.Id)
+            OwnerEmail = ownerEmailByBusinessId.GetValueOrDefault(b.Id)
         }).ToList();
 
         return Ok(result);

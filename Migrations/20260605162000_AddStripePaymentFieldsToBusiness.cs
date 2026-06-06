@@ -5,6 +5,7 @@
 namespace backend.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260605162000_AddStripePaymentFieldsToBusiness")]
     public partial class AddStripePaymentFieldsToBusiness : Migration
     {
         /// <inheritdoc />
