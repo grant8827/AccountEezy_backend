@@ -161,23 +161,34 @@ public class SuperAdminController(
     [HttpGet("packages")]
     public async Task<IActionResult> GetPackages()
     {
-        await EnsureDefaultPackages();
+        try
+        {
+            await EnsureDefaultPackages();
 
-        var packages = await dbContext.SubscriptionPackages
-            .OrderBy(p => p.DisplayOrder)
-            .Select(p => new PackageResponse(
-                p.Id,
-                p.Key,
-                p.Name,
-                p.MonthlyPriceJmd,
-                p.IsCustom,
-                p.DiscountEnabled,
-                p.DiscountPercent,
-                CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
-                p.UpdatedAt))
-            .ToListAsync();
+            var packages = await dbContext.SubscriptionPackages
+                .OrderBy(p => p.DisplayOrder)
+                .Select(p => new PackageResponse(
+                    p.Id,
+                    p.Key,
+                    p.Name,
+                    p.MonthlyPriceJmd,
+                    p.IsCustom,
+                    p.DiscountEnabled,
+                    p.DiscountPercent,
+                    CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
+                    p.UpdatedAt))
+                .ToListAsync();
 
-        return Ok(packages);
+            return Ok(packages);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = "Could not load packages. Confirm the latest backend is deployed and database migrations have run.",
+                detail = ex.Message
+            });
+        }
     }
 
     [HttpPut("packages/{id}/discount")]
