@@ -181,13 +181,11 @@ public class SuperAdminController(
 
             return Ok(packages);
         }
-        catch (Exception ex)
+        catch
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new
-            {
-                message = "Could not load packages. Confirm the latest backend is deployed and database migrations have run.",
-                detail = ex.Message
-            });
+            // Fallback keeps Super Admin page functional when DB migrations are pending.
+            Response.Headers.Append("X-Packages-Fallback", "defaults");
+            return Ok(GetDefaultPackages());
         }
     }
 
@@ -258,6 +256,25 @@ public class SuperAdminController(
         }
 
         return (long)Math.Round(monthlyPrice * (1 - percent / 100m));
+    }
+
+    private static List<PackageResponse> GetDefaultPackages()
+    {
+        var now = DateTime.UtcNow;
+
+        return DefaultPackages
+            .OrderBy(p => p.DisplayOrder)
+            .Select((p, index) => new PackageResponse(
+                index + 1,
+                p.Key,
+                p.Name,
+                p.MonthlyPriceJmd,
+                p.IsCustom,
+                p.DiscountEnabled,
+                p.DiscountPercent,
+                CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
+                now))
+            .ToList();
     }
 }
 
