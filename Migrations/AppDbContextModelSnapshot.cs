@@ -449,6 +449,50 @@ namespace backend.Migrations
                     b.ToTable("Notices");
                 });
 
+            modelBuilder.Entity("backend.Models.SubscriptionPackage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("DiscountEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("DiscountPercent")
+                        .HasColumnType("numeric");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsCustom")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("MonthlyPriceJmd")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPackages");
+                });
+
             modelBuilder.Entity("backend.Models.PayrollBatch", b =>
                 {
                     b.Property<int>("Id")
