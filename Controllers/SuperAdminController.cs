@@ -15,6 +15,14 @@ public class SuperAdminController(
     AppDbContext dbContext,
     UserManager<AppUser> userManager) : ControllerBase
 {
+    private static readonly SubscriptionPackage[] DefaultPackages =
+    [
+        new() { Key = "lite", Name = "Lite", MonthlyPriceJmd = 3500, DisplayOrder = 1 },
+        new() { Key = "starter", Name = "Starter", MonthlyPriceJmd = 6500, DisplayOrder = 2 },
+        new() { Key = "growth", Name = "Growth", MonthlyPriceJmd = 12500, DisplayOrder = 3 },
+        new() { Key = "custom", Name = "Custom", MonthlyPriceJmd = 15000, DisplayOrder = 4, IsCustom = true }
+    ];
+
     // ── Stats overview ───────────────────────────────────────────────────────
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
@@ -149,4 +157,108 @@ public class SuperAdminController(
             EmployeeCount = business.Employees.Count
         });
     }
+
+    [HttpGet("packages")]
+    public async Task<IActionResult> GetPackages()
+    {
+        await EnsureDefaultPackages();
+
+        var packages = await dbContext.SubscriptionPackages
+            .OrderBy(p => p.DisplayOrder)
+            .Select(p => new PackageResponse(
+                p.Id,
+                p.Key,
+                p.Name,
+                p.MonthlyPriceJmd,
+                p.IsCustom,
+                p.DiscountEnabled,
+                p.DiscountPercent,
+                CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
+                p.UpdatedAt))
+            .ToListAsync();
+
+        return Ok(packages);
+    }
+
+    [HttpPut("packages/{id}/discount")]
+    public async Task<IActionResult> UpdatePackageDiscount(int id, PackageDiscountRequest request)
+    {
+        var package = await dbContext.SubscriptionPackages.FindAsync(id);
+        if (package is null)
+        {
+            return NotFound(new { message = "Package not found." });
+        }
+
+        if (request.DiscountPercent is < 0 or > 100)
+        {
+            return BadRequest(new { message = "Discount percent must be between 0 and 100." });
+        }
+
+        package.DiscountEnabled = request.DiscountEnabled;
+        package.DiscountPercent = Math.Round(request.DiscountPercent, 2);
+        package.UpdatedAt = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync();
+
+        return Ok(new PackageResponse(
+            package.Id,
+            package.Key,
+            package.Name,
+            package.MonthlyPriceJmd,
+            package.IsCustom,
+            package.DiscountEnabled,
+            package.DiscountPercent,
+            CalculateDiscountedPrice(package.MonthlyPriceJmd, package.DiscountEnabled, package.DiscountPercent),
+            package.UpdatedAt));
+    }
+
+    private async Task EnsureDefaultPackages()
+    {
+        var existingKeys = await dbContext.SubscriptionPackages
+            .Select(p => p.Key)
+            .ToListAsync();
+
+        var missing = DefaultPackages
+            .Where(p => !existingKeys.Contains(p.Key))
+            .Select(p => new SubscriptionPackage
+            {
+                Key = p.Key,
+                Name = p.Name,
+                MonthlyPriceJmd = p.MonthlyPriceJmd,
+                DisplayOrder = p.DisplayOrder,
+                IsCustom = p.IsCustom
+            })
+            .ToList();
+
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        dbContext.SubscriptionPackages.AddRange(missing);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static long CalculateDiscountedPrice(long monthlyPrice, bool enabled, decimal percent)
+    {
+        if (!enabled || percent <= 0)
+        {
+            return monthlyPrice;
+        }
+
+        return (long)Math.Round(monthlyPrice * (1 - percent / 100m));
+    }
 }
+
+public sealed record PackageDiscountRequest(bool DiscountEnabled, decimal DiscountPercent);
+
+public sealed record PackageResponse(
+    int Id,
+    string Key,
+    string Name,
+    long MonthlyPriceJmd,
+    bool IsCustom,
+    bool DiscountEnabled,
+    decimal DiscountPercent,
+    long DiscountedMonthlyPriceJmd,
+    DateTime UpdatedAt);

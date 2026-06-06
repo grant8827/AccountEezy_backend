@@ -16,6 +16,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
     public DbSet<PayrollBatch> PayrollBatches => Set<PayrollBatch>();
     public DbSet<PayrollEntry> PayrollEntries => Set<PayrollEntry>();
     public DbSet<Notice> Notices => Set<Notice>();
+    public DbSet<SubscriptionPackage> SubscriptionPackages => Set<SubscriptionPackage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -35,6 +36,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
             .WithMany()
             .HasForeignKey(u => u.BusinessId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<SubscriptionPackage>()
+            .HasIndex(p => p.Key)
+            .IsUnique();
 
         builder.Entity<Employee>()
             .HasOne(e => e.Business)
