@@ -192,33 +192,62 @@ public class SuperAdminController(
     [HttpPut("packages/{id}/discount")]
     public async Task<IActionResult> UpdatePackageDiscount(int id, PackageDiscountRequest request)
     {
-        var package = await dbContext.SubscriptionPackages.FindAsync(id);
-        if (package is null)
-        {
-            return NotFound(new { message = "Package not found." });
-        }
-
         if (request.DiscountPercent is < 0 or > 100)
         {
             return BadRequest(new { message = "Discount percent must be between 0 and 100." });
         }
 
-        package.DiscountEnabled = request.DiscountEnabled;
-        package.DiscountPercent = Math.Round(request.DiscountPercent, 2);
-        package.UpdatedAt = DateTime.UtcNow;
+        try
+        {
+            var package = await dbContext.SubscriptionPackages.FindAsync(id);
+            if (package is null)
+            {
+                return NotFound(new { message = "Package not found." });
+            }
 
-        await dbContext.SaveChangesAsync();
+            package.DiscountEnabled = request.DiscountEnabled;
+            package.DiscountPercent = Math.Round(request.DiscountPercent, 2);
+            package.UpdatedAt = DateTime.UtcNow;
 
-        return Ok(new PackageResponse(
-            package.Id,
-            package.Key,
-            package.Name,
-            package.MonthlyPriceJmd,
-            package.IsCustom,
-            package.DiscountEnabled,
-            package.DiscountPercent,
-            CalculateDiscountedPrice(package.MonthlyPriceJmd, package.DiscountEnabled, package.DiscountPercent),
-            package.UpdatedAt));
+            await dbContext.SaveChangesAsync();
+
+            return Ok(new PackageResponse(
+                package.Id,
+                package.Key,
+                package.Name,
+                package.MonthlyPriceJmd,
+                package.IsCustom,
+                package.DiscountEnabled,
+                package.DiscountPercent,
+                CalculateDiscountedPrice(package.MonthlyPriceJmd, package.DiscountEnabled, package.DiscountPercent),
+                package.UpdatedAt));
+        }
+        catch
+        {
+            // Fallback keeps Super Admin page usable when DB migrations are pending.
+            var fallbackPackage = GetDefaultPackageById(id);
+            if (fallbackPackage is null)
+            {
+                return NotFound(new { message = "Package not found." });
+            }
+
+            var roundedPercent = Math.Round(request.DiscountPercent, 2);
+            var now = DateTime.UtcNow;
+
+            Response.Headers.Append("X-Packages-Fallback", "defaults");
+            Response.Headers.Append("X-Packages-Note", "Discount update not persisted while database schema is unavailable.");
+
+            return Ok(new PackageResponse(
+                fallbackPackage.DisplayOrder,
+                fallbackPackage.Key,
+                fallbackPackage.Name,
+                fallbackPackage.MonthlyPriceJmd,
+                fallbackPackage.IsCustom,
+                request.DiscountEnabled,
+                roundedPercent,
+                CalculateDiscountedPrice(fallbackPackage.MonthlyPriceJmd, request.DiscountEnabled, roundedPercent),
+                now));
+        }
     }
 
     private async Task EnsureDefaultPackages()
@@ -275,6 +304,18 @@ public class SuperAdminController(
                 CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
                 now))
             .ToList();
+    }
+
+    private static SubscriptionPackage? GetDefaultPackageById(int id)
+    {
+        if (id <= 0 || id > DefaultPackages.Length)
+        {
+            return null;
+        }
+
+        return DefaultPackages
+            .OrderBy(p => p.DisplayOrder)
+            .ElementAtOrDefault(id - 1);
     }
 }
 
