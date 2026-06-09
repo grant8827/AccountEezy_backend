@@ -103,7 +103,7 @@ using (var startupScope = app.Services.CreateScope())
 // ── Intercept all requests if migration fails to show the EXACT error ──────
 if (startupMigrationError != null)
 {
-    app.Use(async (context, next) =>
+    app.Run(async context =>
     {
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
