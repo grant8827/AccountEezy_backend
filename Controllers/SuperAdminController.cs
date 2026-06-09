@@ -154,6 +154,87 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
         });
     }
 
+    [HttpGet("users/lookup")]
+    public async Task<IActionResult> LookupUser([FromQuery] string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { message = "Email is required." });
+        }
+
+        var normalizedEmail = email.Trim().ToUpperInvariant();
+
+        var user = await dbContext.Users
+            .Where(u => u.NormalizedEmail == normalizedEmail || u.Email == email.Trim())
+            .FirstOrDefaultAsync();
+
+        var business = user?.BusinessId.HasValue == true
+            ? await dbContext.Businesses
+                .Where(b => b.Id == user.BusinessId.Value)
+                .Select(b => new
+                {
+                    b.Id,
+                    b.CompanyName,
+                    b.Status,
+                    b.TRN,
+                    b.BusinessEmail,
+                    b.PaymentStatus,
+                    b.SubscriptionStatus,
+                    b.SelectedPlan,
+                    b.BillingPeriod
+                })
+                .FirstOrDefaultAsync()
+            : null;
+
+        var employee = await dbContext.Employees
+            .Where(e => e.Email == email.Trim())
+            .Select(e => new
+            {
+                e.Id,
+                e.Name,
+                e.Email,
+                e.BusinessId,
+                e.IsActive
+            })
+            .FirstOrDefaultAsync();
+
+        if (user is null && employee is null)
+        {
+            return NotFound(new { message = "No app user or employee found for that email." });
+        }
+
+        return Ok(new
+        {
+            appUser = user is null ? null : new
+            {
+                user.Id,
+                user.Email,
+                user.UserName,
+                user.BusinessId,
+                user.IsAdmin,
+                user.IsSuperAdmin,
+                user.EmailConfirmed,
+                Business = business is null ? null : new
+                {
+                    business.Id,
+                    business.CompanyName,
+                    Status = business.Status.ToString(),
+                    business.TRN,
+                    business.BusinessEmail,
+                    PaymentStatus = business.PaymentStatus.ToString(),
+                    SubscriptionStatus = business.SubscriptionStatus.ToString(),
+                    business.SelectedPlan,
+                    business.BillingPeriod
+                }
+            },
+            employee,
+            loginExpectation = GetLoginExpectation(
+                business?.Status.ToString(),
+                employee?.IsActive,
+                user?.IsSuperAdmin ?? false)
+        });
+    }
+
     [HttpGet("packages")]
     public async Task<IActionResult> GetPackages()
     {
@@ -312,6 +393,24 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
         return DefaultPackages
             .OrderBy(p => p.DisplayOrder)
             .ElementAtOrDefault(id - 1);
+    }
+
+    private static string GetLoginExpectation(string? businessStatus, bool? employeeIsActive, bool isSuperAdmin)
+    {
+        if (isSuperAdmin)
+        {
+            return "Super admin should be allowed to log in if the password is valid.";
+        }
+
+        return businessStatus switch
+        {
+            nameof(BusinessStatus.Active) => "Business user should be allowed to log in if the password is valid.",
+            nameof(BusinessStatus.Pending) => "Business user is blocked until the business is approved.",
+            nameof(BusinessStatus.Suspended) => "Business user is blocked because the business is suspended.",
+            null when employeeIsActive == true => "Employee should be allowed to log in if the password is valid.",
+            null when employeeIsActive == false => "Employee exists but is inactive.",
+            _ => "No active login path is linked to this email."
+        };
     }
 }
 

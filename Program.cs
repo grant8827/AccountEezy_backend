@@ -98,6 +98,20 @@ using (var startupScope = app.Services.CreateScope())
         Console.WriteLine(ex.StackTrace);
         startupMigrationError = $"Migration Error: {ex.Message} | Inner: {ex.InnerException?.Message}";
     }
+
+    if (startupMigrationError is null)
+    {
+        try
+        {
+            var userManager = startupScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            await EnsureConfiguredSuperAdmin(builder.Configuration, userManager);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while configuring the super admin: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
+    }
 }
 
 // ── Intercept all requests if migration fails to show the EXACT error ──────
@@ -245,4 +259,74 @@ static async Task SeedTestAccount(AppDbContext context, UserManager<AppUser> use
             Console.WriteLine($"  - {error.Description}");
         }
     }
+}
+
+static async Task EnsureConfiguredSuperAdmin(IConfiguration configuration, UserManager<AppUser> userManager)
+{
+    var email = configuration["SuperAdmin:Email"]?.Trim();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        return;
+    }
+
+    var user = await userManager.FindByEmailAsync(email);
+    if (user is null)
+    {
+        var password = configuration["SuperAdmin:Password"];
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            Console.WriteLine($"Super admin '{email}' was not found. Set SuperAdmin__Password once to create it.");
+            return;
+        }
+
+        user = new AppUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,
+            IsAdmin = true,
+            IsSuperAdmin = true
+        };
+
+        var createResult = await userManager.CreateAsync(user, password);
+        if (!createResult.Succeeded)
+        {
+            var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Failed to create configured super admin '{email}': {errors}");
+        }
+
+        Console.WriteLine($"Configured super admin '{email}' was created.");
+        return;
+    }
+
+    var changed = false;
+    if (!user.IsSuperAdmin)
+    {
+        user.IsSuperAdmin = true;
+        changed = true;
+    }
+    if (!user.IsAdmin)
+    {
+        user.IsAdmin = true;
+        changed = true;
+    }
+    if (!user.EmailConfirmed)
+    {
+        user.EmailConfirmed = true;
+        changed = true;
+    }
+
+    if (!changed)
+    {
+        return;
+    }
+
+    var updateResult = await userManager.UpdateAsync(user);
+    if (!updateResult.Succeeded)
+    {
+        var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+        throw new InvalidOperationException($"Failed to update configured super admin '{email}': {errors}");
+    }
+
+    Console.WriteLine($"Configured super admin '{email}' was restored.");
 }
