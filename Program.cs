@@ -103,8 +103,33 @@ using (var startupScope = app.Services.CreateScope())
 // ── Intercept all requests if migration fails to show the EXACT error ──────
 if (startupMigrationError != null)
 {
+    var allowedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "http://localhost:4200",
+        "https://hrbooks360.com",
+        "https://www.hrbooks360.com",
+        "https://hrbooks360frontend-production.up.railway.app",
+        "https://accounteezyfrontend-production.up.railway.app"
+    };
+
     app.Run(async context =>
     {
+        var origin = context.Request.Headers.Origin.ToString();
+        if (!string.IsNullOrWhiteSpace(origin) && allowedOrigins.Contains(origin))
+        {
+            context.Response.Headers.AccessControlAllowOrigin = origin;
+            context.Response.Headers.AccessControlAllowCredentials = "true";
+            context.Response.Headers.AccessControlAllowMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
+            context.Response.Headers.AccessControlAllowHeaders = "authorization,content-type";
+            context.Response.Headers.Vary = "Origin";
+        }
+
+        if (HttpMethods.IsOptions(context.Request.Method))
+        {
+            context.Response.StatusCode = StatusCodes.Status204NoContent;
+            return;
+        }
+
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsJsonAsync(new
