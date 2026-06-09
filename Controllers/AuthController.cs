@@ -127,6 +127,8 @@ public class AuthController(
             {
                 Success = false,
                 Message = $"Login failed on the server: {ex.Message}"
+                    + (ex.InnerException is not null ? $" Inner: {ex.InnerException.Message}" : string.Empty)
+                    + $" TraceId: {HttpContext.TraceIdentifier}"
             });
         }
     }
