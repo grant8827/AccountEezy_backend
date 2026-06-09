@@ -82,6 +82,8 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+string? startupMigrationError = null;
+
 // ── Apply pending migrations on every startup ─────────────────────────────
 using (var startupScope = app.Services.CreateScope())
 {
@@ -94,7 +96,24 @@ using (var startupScope = app.Services.CreateScope())
     {
         Console.WriteLine($"An error occurred while migrating the database: {ex.Message}");
         Console.WriteLine(ex.StackTrace);
+        startupMigrationError = $"Migration Error: {ex.Message} | Inner: {ex.InnerException?.Message}";
     }
+}
+
+// ── Intercept all requests if migration fails to show the EXACT error ──────
+if (startupMigrationError != null)
+{
+    app.Use(async (context, next) =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            success = false,
+            message = "The database failed to migrate on startup. Please check the error below.",
+            error = startupMigrationError
+        });
+    });
 }
 
 // Seed test data in development
