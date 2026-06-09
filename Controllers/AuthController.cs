@@ -117,14 +117,32 @@ public class AuthController(
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
+        try
+        {
+            return await LoginCore(request);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new AuthResponse
+            {
+                Success = false,
+                Message = $"Login failed on the server: {ex.Message}"
+            });
+        }
+    }
+
+    private async Task<ActionResult<AuthResponse>> LoginCore(LoginRequest request)
+    {
+        var email = request.Email.Trim();
+        var normalizedEmail = email.ToUpperInvariant();
         var user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.NormalizedEmail == request.Email.ToUpper());
+            .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail || u.Email == email);
 
         // No AppUser found — try authenticating as an Employee directly
         if (user is null)
         {
             var empUser = await dbContext.Employees
-                .FirstOrDefaultAsync(e => e.Email == request.Email && e.IsActive);
+                .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
 
             if (empUser is null || string.IsNullOrEmpty(empUser.PasswordHash) ||
                 !BCrypt.Net.BCrypt.Verify(request.Password, empUser.PasswordHash))
@@ -141,7 +159,7 @@ public class AuthController(
                 {
                     User = new UserData
                     {
-                        Email = empUser.Email ?? request.Email,
+                        Email = empUser.Email ?? email,
                         EmployeeId = empUser.Id,
                         EmployeeName = empUser.Name,
                         IsEmployee = true,
@@ -218,7 +236,7 @@ public class AuthController(
 
         // Check if this user is an employee (not a business owner)
         var employee = await dbContext.Employees
-            .FirstOrDefaultAsync(e => e.Email == request.Email && e.IsActive);
+            .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
 
         var (token, expiresAt) = jwtTokenService.Generate(user, employee?.Id);
 
