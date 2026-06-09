@@ -235,6 +235,14 @@ public class AuthController(
                 Message = "Your account has been suspended. Please contact support."
             });
         }
+        if (business is not null && business.Status == BusinessStatus.Deactivated)
+        {
+            return Ok(new AuthResponse
+            {
+                Success = false,
+                Message = "Your account has been deactivated. Please contact support."
+            });
+        }
 
         // Check if this user is an employee (not a business owner)
         var employee = await dbContext.Employees

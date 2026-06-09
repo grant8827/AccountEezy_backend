@@ -4,7 +4,8 @@ public enum BusinessStatus
 {
     Pending = 0,
     Active = 1,
-    Suspended = 2
+    Suspended = 2,
+    Deactivated = 3
 }
 
 public enum SubscriptionStatus

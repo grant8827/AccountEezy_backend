@@ -27,8 +27,9 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
         var active = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Active);
         var pending = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Pending);
         var suspended = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Suspended);
+        var deactivated = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Deactivated);
 
-        return Ok(new { total, active, pending, suspended });
+        return Ok(new { total, active, pending, suspended, deactivated });
     }
 
     // ── List all businesses ──────────────────────────────────────────────────
@@ -94,26 +95,28 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
     [HttpPost("businesses/{id}/approve")]
     public async Task<IActionResult> Approve(int id)
     {
-        var business = await dbContext.Businesses.FindAsync(id);
-        if (business is null) return NotFound(new { message = "Business not found." });
+        return await SetBusinessStatus(id, BusinessStatus.Active, "activated");
+    }
 
-        business.Status = BusinessStatus.Active;
-        await dbContext.SaveChangesAsync();
-
-        return Ok(new { message = $"{business.CompanyName} has been approved." });
+    // ── Activate a business ─────────────────────────────────────────────────
+    [HttpPost("businesses/{id}/activate")]
+    public async Task<IActionResult> Activate(int id)
+    {
+        return await SetBusinessStatus(id, BusinessStatus.Active, "activated");
     }
 
     // ── Suspend a business ───────────────────────────────────────────────────
     [HttpPost("businesses/{id}/suspend")]
     public async Task<IActionResult> Suspend(int id)
     {
-        var business = await dbContext.Businesses.FindAsync(id);
-        if (business is null) return NotFound(new { message = "Business not found." });
+        return await SetBusinessStatus(id, BusinessStatus.Suspended, "suspended");
+    }
 
-        business.Status = BusinessStatus.Suspended;
-        await dbContext.SaveChangesAsync();
-
-        return Ok(new { message = $"{business.CompanyName} has been suspended." });
+    // ── Deactivate a business ────────────────────────────────────────────────
+    [HttpPost("businesses/{id}/deactivate")]
+    public async Task<IActionResult> Deactivate(int id)
+    {
+        return await SetBusinessStatus(id, BusinessStatus.Deactivated, "deactivated");
     }
 
     // ── Get single business detail ───────────────────────────────────────────
@@ -407,10 +410,22 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
             nameof(BusinessStatus.Active) => "Business user should be allowed to log in if the password is valid.",
             nameof(BusinessStatus.Pending) => "Business user is blocked until the business is approved.",
             nameof(BusinessStatus.Suspended) => "Business user is blocked because the business is suspended.",
+            nameof(BusinessStatus.Deactivated) => "Business user is blocked because the business is deactivated.",
             null when employeeIsActive == true => "Employee should be allowed to log in if the password is valid.",
             null when employeeIsActive == false => "Employee exists but is inactive.",
             _ => "No active login path is linked to this email."
         };
+    }
+
+    private async Task<IActionResult> SetBusinessStatus(int id, BusinessStatus status, string actionLabel)
+    {
+        var business = await dbContext.Businesses.FindAsync(id);
+        if (business is null) return NotFound(new { message = "Business not found." });
+
+        business.Status = status;
+        await dbContext.SaveChangesAsync();
+
+        return Ok(new { message = $"{business.CompanyName} has been {actionLabel}.", status = status.ToString() });
     }
 }
 
