@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +9,7 @@ namespace backend.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/employee-portal")]
-public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
+public class EmployeePortalController(AppDbContext dbContext) : BaseApiController
 {
     // ── GET /api/employee-portal/payslips ─────────────────────────────────────
     /// Returns all processed payslip entries for the authenticated employee.
@@ -164,13 +163,5 @@ public class EmployeePortalController(AppDbContext dbContext) : ControllerBase
         if (profile is null) return NotFound();
 
         return Ok(profile);
-    }
-
-    private int? GetEmployeeId()
-    {
-        // Employee JWT carries "employeeId" claim (set by EmployeeAuthController)
-        var claim = User.FindFirstValue("employeeId")
-                 ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return int.TryParse(claim, out var id) ? id : null;
     }
 }

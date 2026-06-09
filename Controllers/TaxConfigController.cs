@@ -26,7 +26,7 @@ public class TaxConfigRequest
 [ApiController]
 [Authorize]
 [Route("api/tax-config")]
-public class TaxConfigController(AppDbContext dbContext) : ControllerBase
+public class TaxConfigController(AppDbContext dbContext) : BaseApiController
 {
     [HttpGet]
     public async Task<ActionResult<TaxConfiguration>> Get()
@@ -77,11 +77,5 @@ public class TaxConfigController(AppDbContext dbContext) : ControllerBase
 
         await dbContext.SaveChangesAsync();
         return Ok(config);
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId");
-        return int.TryParse(claim, out var id) ? id : null;
     }
 }

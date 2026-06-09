@@ -29,7 +29,7 @@ public class EmployeeAuthResponse
 
 [ApiController]
 [Route("api/employee-auth")]
-public class EmployeeAuthController(AppDbContext dbContext, IOptions<JwtOptions> jwtOptions) : ControllerBase
+public class EmployeeAuthController(AppDbContext dbContext, IOptions<JwtOptions> jwtOptions) : BaseApiController
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
 

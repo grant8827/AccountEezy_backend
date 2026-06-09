@@ -63,7 +63,7 @@ public class AuthController(
         var trialStart = DateTime.UtcNow;
         var business = new Business
         {
-            Status = "Pending",  // Must be approved by super-admin before login
+            Status = BusinessStatus.Pending,  // Must be approved by super-admin before login
             CompanyName = request.BusinessName,
             TRN = request.TRN,
             Sector = request.Industry ?? request.BusinessType ?? "General",
@@ -199,7 +199,7 @@ public class AuthController(
             : null;
 
         // Block access if business is not Active
-        if (business is not null && business.Status == "Pending")
+        if (business is not null && business.Status == BusinessStatus.Pending)
         {
             return Ok(new AuthResponse
             {
@@ -207,7 +207,7 @@ public class AuthController(
                 Message = "Your account is pending approval. Please contact support."
             });
         }
-        if (business is not null && business.Status == "Suspended")
+        if (business is not null && business.Status == BusinessStatus.Suspended)
         {
             return Ok(new AuthResponse
             {

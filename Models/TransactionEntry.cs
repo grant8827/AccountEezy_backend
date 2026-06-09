@@ -2,25 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace backend.Models;
 
-public enum TransactionType
-{
-    Income = 1,
-    Expense = 2
-}
-
-public enum TransactionFrequency
-{
-    Daily = 1,
-    Weekly = 2,
-    Monthly = 3
-}
-
-public enum TransactionStatus
-{
-    Pending = 1,
-    Cleared = 2
-}
-
 public class TransactionEntry
 {
     public int Id { get; set; }

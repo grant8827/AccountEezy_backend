@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -12,8 +11,8 @@ public class EmployeeRequest
 {
     public string Name { get; set; } = string.Empty;
     public string NisNumber { get; set; } = string.Empty;
-    public decimal GrossSalary { get; set; }
-    public string PayCycle { get; set; } = "Monthly";
+    public decimal GrossSalary { get; set; } // Monthly gross salary
+    public PayCycle PayCycle { get; set; } = PayCycle.Monthly;
 
     // New fields for employee records
     public string? TRN { get; set; }
@@ -55,7 +54,7 @@ public class EmployeeRequest
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> userManager) : ControllerBase
+public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> userManager) : BaseApiController
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Employee>>> GetAll()
@@ -311,11 +310,5 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         await dbContext.SaveChangesAsync();
 
         return NoContent();
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId") ?? User.FindFirstValue(ClaimTypes.GroupSid);
-        return int.TryParse(claim, out var id) ? id : null;
     }
 }

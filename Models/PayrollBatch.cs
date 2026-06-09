@@ -15,8 +15,8 @@ public class PayrollBatch
     public int BusinessId { get; set; }
     public Business? Business { get; set; }
 
-    [MaxLength(20)]
-    public required string PayCycle { get; set; } = "Monthly";
+    // PayCycle: Weekly, Fortnightly, Monthly
+    public PayCycle PayCycle { get; set; } = PayCycle.Monthly;
 
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

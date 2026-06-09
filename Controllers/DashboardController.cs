@@ -12,7 +12,7 @@ namespace backend.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class DashboardController(AppDbContext dbContext, IPayrollService payrollService) : ControllerBase
+public class DashboardController(AppDbContext dbContext, IPayrollService payrollService) : BaseApiController
 {
     [HttpGet("summary")]
     public async Task<ActionResult<DashboardSummaryResponse>> Summary()
@@ -56,13 +56,6 @@ public class DashboardController(AppDbContext dbContext, IPayrollService payroll
             CashFlow = Round2(cashFlow)
         });
     }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId") ?? User.FindFirstValue(ClaimTypes.GroupSid);
-        return int.TryParse(claim, out var id) ? id : null;
-    }
-
     private static decimal Round2(decimal value)
         => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 }

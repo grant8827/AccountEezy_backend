@@ -10,7 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
     public DbSet<Business> Businesses => Set<Business>();
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<TransactionEntry> Transactions => Set<TransactionEntry>();
-    public DbSet<TaxRecord> TaxRecords => Set<TaxRecord>();
+    public DbSet<TaxRecord> TaxRecords => Set<TaxRecord>(); // Uses TaxRecordStatus enum
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<TaxConfiguration> TaxConfigurations => Set<TaxConfiguration>();
     public DbSet<PayrollBatch> PayrollBatches => Set<PayrollBatch>();
@@ -31,6 +31,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
             .HasIndex(b => b.TRN)
             .IsUnique();
 
+        // Configure enum to string conversion for BusinessStatus, SubscriptionStatus, PaymentStatus
+        builder.Entity<Business>()
+            .Property(b => b.Status)
+            .HasConversion<string>();
+        builder.Entity<Business>()
+            .Property(b => b.SubscriptionStatus)
+            .HasConversion<string>();
+        builder.Entity<Business>()
+            .Property(b => b.PaymentStatus)
+            .HasConversion<string>();
+
+
         builder.Entity<AppUser>()
             .HasOne(u => u.Business)
             .WithMany()
@@ -40,6 +52,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
         builder.Entity<SubscriptionPackage>()
             .HasIndex(p => p.Key)
             .IsUnique();
+
+        builder.Entity<LeaveRequest>()
+            .Property(lr => lr.Status)
+            .HasConversion<string>();
 
         builder.Entity<Employee>()
             .HasOne(e => e.Business)
@@ -68,6 +84,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
         builder.Entity<Employee>()
             .HasIndex(e => e.Email)
             .IsUnique();
+        builder.Entity<Employee>()
+            .Property(e => e.PayCycle)
+            .HasConversion<string>();
 
         // TaxConfiguration: one per business
         builder.Entity<TaxConfiguration>()
@@ -86,6 +105,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUser
             .WithMany()
             .HasForeignKey(b => b.BusinessId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<PayrollBatch>()
+            .Property(pb => pb.PayCycle)
+            .HasConversion<string>();
 
         // PayrollEntry
         builder.Entity<PayrollEntry>()

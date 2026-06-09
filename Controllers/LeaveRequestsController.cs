@@ -1,9 +1,9 @@
-using System.Security.Claims;
 using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace backend.Controllers;
 
@@ -19,13 +19,13 @@ public class LeaveRequestDto
 
 public class LeaveApprovalDto
 {
-    public string Status { get; set; } = string.Empty; // "Approved" or "Rejected"
+    public LeaveRequestStatus Status { get; set; } // Approved or Rejected
     public string? AdminNotes { get; set; }
 }
 
 [ApiController]
 [Route("api/[controller]")]
-public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment env) : ControllerBase
+public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment env) : BaseApiController
 {
     // Get all leave requests (Admin view - for business)
     [Authorize]
@@ -122,7 +122,7 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
             EndDate = request.EndDate,
             DaysRequested = request.DaysRequested,
             Reason = request.Reason,
-            Status = "Pending",
+            Status = LeaveRequestStatus.Pending,
             DocumentPath = request.DocumentPath,
             RequestedOn = DateTime.UtcNow
         };
@@ -143,7 +143,7 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
             return Unauthorized(new { error = "Employee authentication required" });
 
         var leaveRequest = await dbContext.LeaveRequests
-            .FirstOrDefaultAsync(lr => lr.Id == id && lr.EmployeeId == employeeId && lr.Status == "Pending");
+            .FirstOrDefaultAsync(lr => lr.Id == id && lr.EmployeeId == employeeId && lr.Status == LeaveRequestStatus.Pending);
 
         if (leaveRequest is null)
             return NotFound(new { error = "Leave request not found or cannot be edited" });
@@ -206,14 +206,14 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         if (leaveRequest is null) return NotFound();
 
         var previousStatus = leaveRequest.Status;
-        leaveRequest.Status = approval.Status;
+        leaveRequest.Status = approval.Status; // Enum value
         leaveRequest.AdminNotes = approval.AdminNotes;
         leaveRequest.ReviewedOn = DateTime.UtcNow;
 
-        // Deduct vacation days when approving a vacation leave
-        if (string.Equals(approval.Status, "Approved", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(previousStatus, "Approved", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(leaveRequest.LeaveType, "Vacation", StringComparison.OrdinalIgnoreCase) &&
+        // Deduct vacation days when approving a vacation leave and it wasn't previously approved
+        if (approval.Status == LeaveRequestStatus.Approved &&
+            previousStatus != LeaveRequestStatus.Approved &&
+            leaveRequest.LeaveType == "Vacation" && // Assuming LeaveType is still string
             leaveRequest.Employee is not null)
         {
             leaveRequest.Employee.VacationDaysBalance = Math.Max(
@@ -248,8 +248,8 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         if (!isEmployee && !isAdmin) return Unauthorized();
 
         // Restore vacation days if deleting an approved vacation request
-        if (string.Equals(leaveRequest.Status, "Approved", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(leaveRequest.LeaveType, "Vacation", StringComparison.OrdinalIgnoreCase) &&
+        if (leaveRequest.Status == LeaveRequestStatus.Approved &&
+            leaveRequest.LeaveType == "Vacation" && // Assuming LeaveType is still string
             leaveRequest.Employee is not null)
         {
             leaveRequest.Employee.VacationDaysBalance += leaveRequest.DaysRequested;
@@ -259,11 +259,5 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         await dbContext.SaveChangesAsync();
 
         return NoContent();
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId") ?? User.FindFirstValue(ClaimTypes.GroupSid);
-        return int.TryParse(claim, out var id) ? id : null;
     }
 }

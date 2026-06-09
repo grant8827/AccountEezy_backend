@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using backend.Data;
 using backend.DTOs.Reports;
 using backend.Models;
@@ -12,7 +11,7 @@ namespace backend.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class ReportsController(AppDbContext dbContext, IPayrollService payrollService) : ControllerBase
+public class ReportsController(AppDbContext dbContext, IPayrollService payrollService) : BaseApiController
 {
     // ── Legacy SO1 – kept for backward compatibility ───────────────────────────
     [HttpGet("so1")]
@@ -403,12 +402,6 @@ public class ReportsController(AppDbContext dbContext, IPayrollService payrollSe
             TotalSalaryPaid = salaryPaid,
             NetPosition     = Round2(totalIncome - totalExpenses - salaryPaid)
         };
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId") ?? User.FindFirstValue(ClaimTypes.GroupSid);
-        return int.TryParse(claim, out var id) ? id : null;
     }
 
     private static decimal Round2(decimal value)

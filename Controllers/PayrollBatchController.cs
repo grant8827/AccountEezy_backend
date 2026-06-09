@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using backend.Data;
-using backend.DTOs.Payroll;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +9,7 @@ namespace backend.Controllers;
 
 public class CreateBatchRequest
 {
-    public required string PayCycle { get; set; }
+    public required PayCycle PayCycle { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public DateTime? PayDate { get; set; }
@@ -35,7 +33,7 @@ public class ProcessBatchRequest
 [ApiController]
 [Authorize]
 [Route("api/payroll-batches")]
-public class PayrollBatchController(AppDbContext dbContext, IPayrollService payrollService) : ControllerBase
+public class PayrollBatchController(AppDbContext dbContext, IPayrollService payrollService) : BaseApiController
 {
     // ── GET all batches ───────────────────────────────────────────────────────
     [HttpGet]
@@ -147,7 +145,7 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             StartDate = request.StartDate.ToUniversalTime(),
             EndDate = request.EndDate.ToUniversalTime(),
             PayDate = request.PayDate.HasValue ? request.PayDate.Value.ToUniversalTime() : null,
-            Label = string.IsNullOrWhiteSpace(request.Label)
+            Label = string.IsNullOrWhiteSpace(request.Label) // Default label if not provided
                 ? $"{request.PayCycle} – {(request.PayDate ?? request.EndDate):MMM yyyy}"
                 : request.Label,
             Status = PayrollBatchStatus.Draft
@@ -198,7 +196,7 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             var loan = input?.LoanDeduction ?? 0m;
 
             decimal periodSalary;
-            if (string.Equals(emp.EmploymentType, "Hourly", StringComparison.OrdinalIgnoreCase))
+            if (emp.EmploymentType == "Hourly") // Assuming EmploymentType is still string
             {
                 // Hourly: salary = hours worked × hourly rate (direct — no monthly division)
                 var hours = input?.Hours ?? 0m;
@@ -207,15 +205,16 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
             else
             {
                 // Salary: convert monthly rate to pay-period rate
-                periodSalary = batch.PayCycle.ToLower() switch
+                periodSalary = batch.PayCycle switch
                 {
-                    "weekly"      => emp.GrossSalary / 4.333m,
-                    "fortnightly" => emp.GrossSalary / 2m,
-                    _             => emp.GrossSalary   // Monthly
+                    PayCycle.Weekly      => emp.GrossSalary / 4.333m,
+                    PayCycle.Fortnightly => emp.GrossSalary / 2m,
+                    PayCycle.Monthly     => emp.GrossSalary,
+                    _                    => emp.GrossSalary // Fallback, though enum should prevent this
                 };
             }
 
-            var result = payrollService.CalculateWithConfig(periodSalary, holiday, bonus, loan, taxConfig, batch.PayCycle);
+            var result = payrollService.CalculateWithConfig(periodSalary, holiday, bonus, loan, taxConfig, batch.PayCycle.ToString());
 
             newEntries.Add(new PayrollEntry
             {
@@ -374,29 +373,5 @@ public class PayrollBatchController(AppDbContext dbContext, IPayrollService payr
         };
 
         return Ok(report);
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId");
-        return int.TryParse(claim, out var id) ? id : null;
-    }
-
-    private static bool PayCyclesMatch(string? employeePayCycle, string? batchPayCycle)
-    {
-        return NormalizePayCycle(employeePayCycle) == NormalizePayCycle(batchPayCycle);
-    }
-
-    private static string NormalizePayCycle(string? payCycle)
-    {
-        return (payCycle ?? string.Empty).Trim().ToLowerInvariant() switch
-        {
-            "bi-weekly" => "fortnightly",
-            "biweekly" => "fortnightly",
-            "fortnightly" => "fortnightly",
-            "monthly" => "monthly",
-            "weekly" => "weekly",
-            var value => value
-        };
     }
 }

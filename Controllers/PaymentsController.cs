@@ -12,34 +12,24 @@ namespace backend.Controllers;
 
 [ApiController]
 [Route("api/payments")]
-public class PaymentsController(
-    IConfiguration configuration,
-    IHttpClientFactory httpClientFactory,
-    AppDbContext dbContext) : ControllerBase
+public class PaymentsController(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDbContext dbContext) : BaseApiController
 {
-    private static readonly IReadOnlyDictionary<string, PlanDefinition> Plans =
-        new Dictionary<string, PlanDefinition>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["lite"] = new("Lite", 3500),
-            ["starter"] = new("Starter", 6500),
-            ["growth"] = new("Growth", 12500)
-        };
-
     [HttpPost("create-checkout-session")]
     public async Task<ActionResult<CreateCheckoutSessionResponse>> CreateCheckoutSession(
         CreateCheckoutSessionRequest request,
         CancellationToken cancellationToken)
     {
-        if (!Plans.TryGetValue(request.Plan, out var plan))
+        var package = await dbContext.SubscriptionPackages
+            .FirstOrDefaultAsync(p => p.Key == request.Plan, cancellationToken);
+
+        if (package is null)
         {
             return BadRequest(new { message = "Select a valid paid plan before starting checkout." });
         }
 
-        var package = await dbContext.SubscriptionPackages
-            .FirstOrDefaultAsync(p => p.Key == request.Plan, cancellationToken);
-        var discountEnabled = package?.DiscountEnabled == true && package.DiscountPercent > 0;
-        var discountPercent = discountEnabled ? package!.DiscountPercent : 0m;
-        var monthlyPriceJmd = package?.MonthlyPriceJmd ?? plan.MonthlyPriceJmd;
+        var discountEnabled = package.DiscountEnabled && package.DiscountPercent > 0;
+        var discountPercent = discountEnabled ? package.DiscountPercent : 0m;
+        var monthlyPriceJmd = package.MonthlyPriceJmd;
         var discountedMonthlyPriceJmd = CalculateDiscountedPrice(monthlyPriceJmd, discountEnabled, discountPercent);
 
         var secretKey = configuration["Stripe:SecretKey"];
@@ -98,8 +88,8 @@ public class PaymentsController(
             form.AddRange([
                 new("line_items[0][price_data][currency]", "jmd"),
                 new("line_items[0][price_data][product_data][name]", discountEnabled
-                    ? $"HRBooks360 {plan.Name} ({discountPercent:0.##}% off)"
-                    : $"HRBooks360 {plan.Name}"),
+                    ? $"HRBooks360 {package.Name} ({discountPercent:0.##}% off)"
+                    : $"HRBooks360 {package.Name}"),
                 new("line_items[0][price_data][unit_amount]", amount.ToString()),
                 new("line_items[0][price_data][recurring][interval]", interval)
             ]);
@@ -190,9 +180,9 @@ public class PaymentsController(
             return;
         }
 
-        business.Status = "Active";
-        business.PaymentStatus = "Paid";
-        business.SubscriptionStatus = "Active";
+        business.Status = BusinessStatus.Active;
+        business.PaymentStatus = PaymentStatus.Paid;
+        business.SubscriptionStatus = SubscriptionStatus.Active;
         business.SelectedPlan = GetMetadataValue(metadata, "plan");
         business.BillingPeriod = GetMetadataValue(metadata, "billing");
         business.StripeCustomerId = GetString(session, "customer");
@@ -219,16 +209,24 @@ public class PaymentsController(
         }
 
         var status = GetString(subscription, "status") ?? "unknown";
-        business.SubscriptionStatus = status;
-        business.PaymentStatus = status is "active" or "trialing" ? "Paid" : "Unpaid";
+        business.SubscriptionStatus = status.ToLowerInvariant() switch
+        {
+            "active" => SubscriptionStatus.Active,
+            "trialing" => SubscriptionStatus.Active,
+            "canceled" => SubscriptionStatus.Canceled,
+            "unpaid" => SubscriptionStatus.Unpaid,
+            "past_due" => SubscriptionStatus.PastDue,
+            _ => SubscriptionStatus.Incomplete // Default or unknown status
+        };
+        business.PaymentStatus = business.SubscriptionStatus is SubscriptionStatus.Active ? PaymentStatus.Paid : PaymentStatus.Unpaid;
 
-        if (status is "active" or "trialing")
+        if (business.SubscriptionStatus is SubscriptionStatus.Active)
         {
-            business.Status = "Active";
+            business.Status = BusinessStatus.Active;
         }
-        else if (status is "canceled" or "unpaid" or "past_due")
+        else if (business.SubscriptionStatus is SubscriptionStatus.Canceled or SubscriptionStatus.Unpaid or SubscriptionStatus.PastDue)
         {
-            business.Status = "Suspended";
+            business.Status = BusinessStatus.Suspended;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -250,8 +248,8 @@ public class PaymentsController(
             return;
         }
 
-        business.PaymentStatus = "PaymentFailed";
-        business.SubscriptionStatus = "PastDue";
+        business.PaymentStatus = PaymentStatus.PaymentFailed;
+        business.SubscriptionStatus = SubscriptionStatus.PastDue;
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -331,8 +329,6 @@ public class PaymentsController(
             return "Stripe returned an error.";
         }
     }
-
-    private sealed record PlanDefinition(string Name, long MonthlyPriceJmd);
 }
 
 public sealed record CreateCheckoutSessionResponse(string SessionId, string Url);

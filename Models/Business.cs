@@ -69,16 +69,16 @@ public class Business
     public string? LogoUrl { get; set; }
 
     // Platform status: "Pending", "Active", "Suspended"
-    [MaxLength(20)]
-    public string Status { get; set; } = "Pending";
+    public BusinessStatus Status { get; set; } = BusinessStatus.Pending;
 
-    [MaxLength(40)]
-    public string SubscriptionStatus { get; set; } = "Incomplete";
+    // Subscription status: "Incomplete", "Active", "Canceled", "Unpaid", "PastDue"
+    public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.Incomplete;
 
-    [MaxLength(40)]
-    public string PaymentStatus { get; set; } = "Unpaid";
+    // Payment status: "Unpaid", "Paid", "PaymentFailed"
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Unpaid;
 
     [MaxLength(80)]
+    // Stores the Key of the selected SubscriptionPackage
     public string? SelectedPlan { get; set; }
 
     [MaxLength(20)]

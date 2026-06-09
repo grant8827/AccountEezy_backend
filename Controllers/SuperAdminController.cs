@@ -1,19 +1,15 @@
 using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace backend.Controllers;
 
 [ApiController]
 [Route("api/superadmin")]
 [Authorize(Roles = "SuperAdmin")]
-public class SuperAdminController(
-    AppDbContext dbContext,
-    UserManager<AppUser> userManager) : ControllerBase
+public class SuperAdminController(AppDbContext dbContext) : BaseApiController
 {
     private static readonly SubscriptionPackage[] DefaultPackages =
     [
@@ -28,9 +24,9 @@ public class SuperAdminController(
     public async Task<IActionResult> GetStats()
     {
         var total = await dbContext.Businesses.CountAsync();
-        var active = await dbContext.Businesses.CountAsync(b => b.Status == "Active");
-        var pending = await dbContext.Businesses.CountAsync(b => b.Status == "Pending");
-        var suspended = await dbContext.Businesses.CountAsync(b => b.Status == "Suspended");
+        var active = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Active);
+        var pending = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Pending);
+        var suspended = await dbContext.Businesses.CountAsync(b => b.Status == BusinessStatus.Suspended);
 
         return Ok(new { total, active, pending, suspended });
     }
@@ -101,7 +97,7 @@ public class SuperAdminController(
         var business = await dbContext.Businesses.FindAsync(id);
         if (business is null) return NotFound(new { message = "Business not found." });
 
-        business.Status = "Active";
+        business.Status = BusinessStatus.Active;
         await dbContext.SaveChangesAsync();
 
         return Ok(new { message = $"{business.CompanyName} has been approved." });
@@ -114,7 +110,7 @@ public class SuperAdminController(
         var business = await dbContext.Businesses.FindAsync(id);
         if (business is null) return NotFound(new { message = "Business not found." });
 
-        business.Status = "Suspended";
+        business.Status = BusinessStatus.Suspended;
         await dbContext.SaveChangesAsync();
 
         return Ok(new { message = $"{business.CompanyName} has been suspended." });

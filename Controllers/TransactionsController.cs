@@ -12,7 +12,7 @@ namespace backend.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class TransactionsController(AppDbContext dbContext) : ControllerBase
+public class TransactionsController(AppDbContext dbContext) : BaseApiController
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TransactionResponse>>> GetAll([FromQuery] int? frequency = null)
@@ -162,11 +162,5 @@ public class TransactionsController(AppDbContext dbContext) : ControllerBase
         dbContext.Transactions.Remove(entry);
         await dbContext.SaveChangesAsync();
         return NoContent();
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId") ?? User.FindFirstValue(ClaimTypes.GroupSid);
-        return int.TryParse(claim, out var id) ? id : null;
     }
 }

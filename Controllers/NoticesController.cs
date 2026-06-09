@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +9,7 @@ namespace backend.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/notices")]
-public class NoticesController(AppDbContext dbContext) : ControllerBase
+public class NoticesController(AppDbContext dbContext) : BaseApiController
 {
     // ── GET /api/notices ─────────────────────────────────────────────────────
     /// Returns all notices for the authenticated employer's business.
@@ -100,12 +99,6 @@ public class NoticesController(AppDbContext dbContext) : ControllerBase
         dbContext.Notices.Remove(notice);
         await dbContext.SaveChangesAsync();
         return NoContent();
-    }
-
-    private int? GetBusinessId()
-    {
-        var claim = User.FindFirstValue("businessId");
-        return int.TryParse(claim, out var id) ? id : null;
     }
 }
 

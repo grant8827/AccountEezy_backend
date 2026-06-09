@@ -20,8 +20,7 @@ public class LeaveRequest
     [MaxLength(500)]
     public string? Reason { get; set; }
 
-    [MaxLength(20)]
-    public required string Status { get; set; } = "Pending"; // "Pending", "Approved", "Rejected"
+    public LeaveRequestStatus Status { get; set; } = LeaveRequestStatus.Pending; // "Pending", "Approved", "Rejected"
 
     [MaxLength(250)]
     public string? AdminNotes { get; set; }

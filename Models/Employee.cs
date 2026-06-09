@@ -18,8 +18,8 @@ public class Employee
 
     public decimal GrossSalary { get; set; }
 
-    [MaxLength(20)]
-    public required string PayCycle { get; set; }
+    // PayCycle: Weekly, Fortnightly, Monthly
+    public PayCycle PayCycle { get; set; }
 
     // New fields for employee records
     [MaxLength(20)]
