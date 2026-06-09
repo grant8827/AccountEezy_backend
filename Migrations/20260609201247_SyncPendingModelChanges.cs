@@ -37,32 +37,37 @@ namespace backend.Migrations
                 oldType: "character varying(20)",
                 oldMaxLength: 20);
 
-            migrationBuilder.AlterColumn<string>(
-                name: "SubscriptionStatus",
-                table: "Businesses",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(40)",
-                oldMaxLength: 40);
+            migrationBuilder.Sql(@"
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Businesses'
+          AND column_name = 'SubscriptionStatus') THEN
+        ALTER TABLE ""Businesses"" ALTER COLUMN ""SubscriptionStatus"" TYPE text;
+    END IF;
 
-            migrationBuilder.AlterColumn<string>(
-                name: "Status",
-                table: "Businesses",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(20)",
-                oldMaxLength: 20);
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Businesses'
+          AND column_name = 'Status') THEN
+        ALTER TABLE ""Businesses"" ALTER COLUMN ""Status"" TYPE text;
+    END IF;
 
-            migrationBuilder.AlterColumn<string>(
-                name: "PaymentStatus",
-                table: "Businesses",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(40)",
-                oldMaxLength: 40);
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Businesses'
+          AND column_name = 'PaymentStatus') THEN
+        ALTER TABLE ""Businesses"" ALTER COLUMN ""PaymentStatus"" TYPE text;
+    END IF;
+END $$;
+");
         }
 
         /// <inheritdoc />
@@ -95,32 +100,37 @@ namespace backend.Migrations
                 oldClrType: typeof(string),
                 oldType: "text");
 
-            migrationBuilder.AlterColumn<string>(
-                name: "SubscriptionStatus",
-                table: "Businesses",
-                type: "character varying(40)",
-                maxLength: 40,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
+            migrationBuilder.Sql(@"
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Businesses'
+          AND column_name = 'SubscriptionStatus') THEN
+        ALTER TABLE ""Businesses"" ALTER COLUMN ""SubscriptionStatus"" TYPE character varying(40);
+    END IF;
 
-            migrationBuilder.AlterColumn<string>(
-                name: "Status",
-                table: "Businesses",
-                type: "character varying(20)",
-                maxLength: 20,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Businesses'
+          AND column_name = 'Status') THEN
+        ALTER TABLE ""Businesses"" ALTER COLUMN ""Status"" TYPE character varying(20);
+    END IF;
 
-            migrationBuilder.AlterColumn<string>(
-                name: "PaymentStatus",
-                table: "Businesses",
-                type: "character varying(40)",
-                maxLength: 40,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'Businesses'
+          AND column_name = 'PaymentStatus') THEN
+        ALTER TABLE ""Businesses"" ALTER COLUMN ""PaymentStatus"" TYPE character varying(40);
+    END IF;
+END $$;
+");
         }
     }
 }
