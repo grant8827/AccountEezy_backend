@@ -65,7 +65,8 @@ builder.Services.AddCors(options =>
             "https://hrbooks360frontend-production.up.railway.app",
             "https://accounteezyfrontend-production.up.railway.app")
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 builder.Services.AddControllers()
@@ -84,8 +85,16 @@ var app = builder.Build();
 // ── Apply pending migrations on every startup ─────────────────────────────
 using (var startupScope = app.Services.CreateScope())
 {
-    var db = startupScope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    try
+    {
+        var db = startupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while migrating the database: {ex.Message}");
+        Console.WriteLine(ex.StackTrace);
+    }
 }
 
 // Seed test data in development
@@ -102,10 +111,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-app.UseRouting();
-app.UseCors("frontend");
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -120,6 +125,11 @@ app.UseExceptionHandler(errorApp =>
         });
     });
 });
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
