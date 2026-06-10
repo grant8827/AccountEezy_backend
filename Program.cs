@@ -178,6 +178,15 @@ static async Task EnsureSubscriptionColumns(AppDbContext db)
 
         UPDATE "Businesses" SET "PaymentStatus" = 'Unpaid' WHERE "PaymentStatus" IS NULL OR "PaymentStatus" = '';
         UPDATE "Businesses" SET "SubscriptionStatus" = 'Incomplete' WHERE "SubscriptionStatus" IS NULL OR "SubscriptionStatus" = '';
+        UPDATE "Businesses" SET "SubscriptionStatus" = 'Active' WHERE lower("SubscriptionStatus") IN ('complete', 'completed', 'active', 'trialing', 'paid');
+        UPDATE "Businesses" SET "SubscriptionStatus" = 'Canceled' WHERE lower("SubscriptionStatus") IN ('cancelled', 'canceled');
+        UPDATE "Businesses" SET "SubscriptionStatus" = 'Unpaid' WHERE lower("SubscriptionStatus") = 'unpaid';
+        UPDATE "Businesses" SET "SubscriptionStatus" = 'PastDue' WHERE lower("SubscriptionStatus") IN ('past_due', 'pastdue', 'paymentfailed', 'payment_failed');
+        UPDATE "Businesses" SET "SubscriptionStatus" = 'Incomplete' WHERE "SubscriptionStatus" NOT IN ('Incomplete', 'Active', 'Canceled', 'Unpaid', 'PastDue');
+
+        UPDATE "Businesses" SET "PaymentStatus" = 'Paid' WHERE lower("PaymentStatus") IN ('paid', 'complete', 'completed', 'active');
+        UPDATE "Businesses" SET "PaymentStatus" = 'PaymentFailed' WHERE lower("PaymentStatus") IN ('paymentfailed', 'payment_failed', 'failed');
+        UPDATE "Businesses" SET "PaymentStatus" = 'Unpaid' WHERE "PaymentStatus" NOT IN ('Unpaid', 'Paid', 'PaymentFailed');
         """);
 }
 
