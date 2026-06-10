@@ -29,4 +29,8 @@ public class RegisterRequest
     public required string BusinessPhone { get; set; }
     public required string BusinessEmail { get; set; }
     public string? Website { get; set; }
+
+    // Selected subscription intent
+    public string? SelectedPlan { get; set; }
+    public string? BillingPeriod { get; set; }
 }

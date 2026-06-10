@@ -82,7 +82,9 @@ public class AuthController(
             Country = request.Country ?? "Jamaica",
             BusinessPhone = request.BusinessPhone,
             BusinessEmail = request.BusinessEmail,
-            Website = request.Website
+            Website = request.Website,
+            SelectedPlan = string.IsNullOrWhiteSpace(request.SelectedPlan) ? null : request.SelectedPlan.Trim().ToLowerInvariant(),
+            BillingPeriod = NormalizeBillingPeriod(request.BillingPeriod)
         };
 
         dbContext.Businesses.Add(business);
@@ -108,7 +110,12 @@ public class AuthController(
                     TrialStartDate = business.TrialStartDate,
                     TrialExpiresAt = business.TrialStartDate.AddDays(14),
                     IsTrialExpired = false,
-                    IsAdmin = true
+                    IsAdmin = true,
+                    RequiresPayment = true,
+                    SelectedPlan = business.SelectedPlan,
+                    BillingPeriod = business.BillingPeriod,
+                    PaymentStatus = business.PaymentStatus.ToString(),
+                    SubscriptionStatus = business.SubscriptionStatus.ToString()
                 }
             }
         });
@@ -218,35 +225,40 @@ public class AuthController(
                 .FirstOrDefaultAsync(b => b.Id == user.BusinessId.Value)
             : null;
 
-        // Block access if business is not Active
-        if (business is not null && business.Status == BusinessStatus.Pending)
+        // Determine payment requirement and suspension flags based on business status
+        bool requiresPayment = false;
+        bool isSuspended = false;
+
+        if (business is not null)
         {
-            return Ok(new AuthResponse
+            ApplyPastDueSuspensionIfNeeded(business);
+
+            if (business.Status == BusinessStatus.Pending || business.PaymentStatus == PaymentStatus.Unpaid)
             {
-                Success = false,
-                Message = "Your account is pending approval. Please contact support."
-            });
-        }
-        if (business is not null && business.Status == BusinessStatus.Suspended)
-        {
-            return Ok(new AuthResponse
+                requiresPayment = true;
+            }
+            else if (business.Status == BusinessStatus.Suspended)
             {
-                Success = false,
-                Message = "Your account has been suspended. Please contact support."
-            });
-        }
-        if (business is not null && business.Status == BusinessStatus.Deactivated)
-        {
-            return Ok(new AuthResponse
+                isSuspended = true;
+            }
+            else if (business.Status == BusinessStatus.Deactivated)
             {
-                Success = false,
-                Message = "Your account has been deactivated. Please contact support."
-            });
+                return Ok(new AuthResponse
+                {
+                    Success = false,
+                    Message = "Your account has been deactivated. Please contact support."
+                });
+            }
         }
 
         // Check if this user is an employee (not a business owner)
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
+
+        if (business is not null)
+        {
+            await dbContext.SaveChangesAsync();
+        }
 
         var (token, expiresAt) = jwtTokenService.Generate(user, employee?.Id);
 
@@ -255,7 +267,7 @@ public class AuthController(
         return Ok(new AuthResponse
         {
             Success = true,
-            Message = "Login successful",
+            Message = requiresPayment || isSuspended ? "Account requires attention" : "Login successful",
             Data = new AuthData
             {
                 User = new UserData
@@ -271,11 +283,46 @@ public class AuthController(
                     EmployeeId = employee?.Id,
                     EmployeeName = employee?.Name,
                     IsAdmin = user.IsAdmin,
-                    IsSuperAdmin = false
+                    IsSuperAdmin = false,
+                    RequiresPayment = requiresPayment,
+                    IsSuspended = isSuspended,
+                    SelectedPlan = business?.SelectedPlan,
+                    BillingPeriod = business?.BillingPeriod,
+                    PaymentStatus = business?.PaymentStatus.ToString(),
+                    SubscriptionStatus = business?.SubscriptionStatus.ToString(),
+                    NextPaymentDueAt = business?.NextPaymentDueAt,
+                    GracePeriodEndsAt = business?.GracePeriodEndsAt
                 },
                 Token = token
             }
         });
+    }
+
+    private static string? NormalizeBillingPeriod(string? billingPeriod)
+    {
+        if (string.IsNullOrWhiteSpace(billingPeriod))
+        {
+            return null;
+        }
+
+        return billingPeriod.Trim().Equals("yearly", StringComparison.OrdinalIgnoreCase)
+            ? "Yearly"
+            : "Monthly";
+    }
+
+    private static void ApplyPastDueSuspensionIfNeeded(Business business)
+    {
+        if (business.Status is BusinessStatus.Deactivated or BusinessStatus.Suspended)
+        {
+            return;
+        }
+
+        if (business.GracePeriodEndsAt is not null && DateTime.UtcNow > business.GracePeriodEndsAt.Value)
+        {
+            business.Status = BusinessStatus.Suspended;
+            business.PaymentStatus = PaymentStatus.Unpaid;
+            business.SubscriptionStatus = SubscriptionStatus.PastDue;
+        }
     }
 
     [HttpGet("profile")]

@@ -188,6 +188,8 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
         business.StripeCustomerId = GetString(session, "customer");
         business.StripeSubscriptionId = GetString(session, "subscription");
         business.PaymentCompletedAt = DateTime.UtcNow;
+        business.LastPaymentMethod = "Stripe";
+        ApplyPaymentWindow(business, business.BillingPeriod, DateTime.UtcNow);
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -223,6 +225,9 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
         if (business.SubscriptionStatus is SubscriptionStatus.Active)
         {
             business.Status = BusinessStatus.Active;
+            business.PaymentCompletedAt = DateTime.UtcNow;
+            business.LastPaymentMethod = "Stripe";
+            ApplyPaymentWindow(business, business.BillingPeriod, DateTime.UtcNow);
         }
         else if (business.SubscriptionStatus is SubscriptionStatus.Canceled or SubscriptionStatus.Unpaid or SubscriptionStatus.PastDue)
         {
@@ -314,6 +319,21 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
         }
 
         return Math.Max(0, (long)Math.Round(monthlyPrice * (1 - percent / 100m)));
+    }
+
+    private static void ApplyPaymentWindow(Models.Business business, string? billingPeriod, DateTime paidAtUtc)
+    {
+        var normalizedBilling = string.Equals(billingPeriod, "yearly", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(billingPeriod, "Yearly", StringComparison.Ordinal)
+                ? "Yearly"
+                : "Monthly";
+
+        business.BillingPeriod = normalizedBilling;
+        business.SubscriptionStartedAt ??= paidAtUtc;
+        business.NextPaymentDueAt = normalizedBilling == "Yearly"
+            ? paidAtUtc.AddYears(1)
+            : paidAtUtc.AddDays(30);
+        business.GracePeriodEndsAt = business.NextPaymentDueAt.Value.AddDays(7);
     }
 
     private static string TryReadStripeError(string body)

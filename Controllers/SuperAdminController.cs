@@ -47,6 +47,13 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 b.Sector,
                 b.BusinessType,
                 b.Status,
+                b.PaymentStatus,
+                b.SubscriptionStatus,
+                b.SelectedPlan,
+                b.BillingPeriod,
+                b.PaymentCompletedAt,
+                b.NextPaymentDueAt,
+                b.GracePeriodEndsAt,
                 b.TrialStartDate,
                 b.BusinessEmail,
                 b.BusinessPhone,
@@ -78,15 +85,22 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
             b.Sector,
             b.BusinessType,
             b.Status,
+            b.PaymentStatus,
+            b.SubscriptionStatus,
+            b.SelectedPlan,
+            b.BillingPeriod,
+            b.PaymentCompletedAt,
+            b.NextPaymentDueAt,
+            b.GracePeriodEndsAt,
             b.TrialStartDate,
             b.BusinessEmail,
             b.BusinessPhone,
             b.Parish,
             b.Country,
-            OwnerName = $"{b.FirstName} {b.LastName}".Trim(),
-            b.EmployeeCount,
-            OwnerEmail = ownerEmailByBusinessId.GetValueOrDefault(b.Id)
-        }).ToList();
+            OwnerName = (b.FirstName + " " + b.LastName).Trim(),
+            OwnerEmail = ownerEmailByBusinessId.GetValueOrDefault(b.Id),
+            b.EmployeeCount
+        });
 
         return Ok(result);
     }
@@ -103,6 +117,76 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
     public async Task<IActionResult> Activate(int id)
     {
         return await SetBusinessStatus(id, BusinessStatus.Active, "activated");
+    }
+
+    // ── Update Business Subscription ─────────────────────────────────────────
+    [HttpPut("businesses/{id}/subscription")]
+    public async Task<IActionResult> UpdateBusinessSubscription(int id, [FromBody] UpdateSubscriptionRequest request)
+    {
+        var business = await dbContext.Businesses.FindAsync(id);
+        if (business is null) return NotFound(new { message = "Business not found." });
+
+        if (!string.IsNullOrEmpty(request.BillingPeriod))
+        {
+            if (!IsValidBillingPeriod(request.BillingPeriod))
+            {
+                return BadRequest(new { message = "Billing period must be 'Monthly' or 'Yearly'." });
+            }
+            business.BillingPeriod = NormalizeBillingPeriod(request.BillingPeriod);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SelectedPlan))
+        {
+            business.SelectedPlan = request.SelectedPlan.Trim().ToLowerInvariant();
+        }
+
+        if (request.PaymentStatus == PaymentStatus.Paid)
+        {
+            var paidAt = DateTime.UtcNow;
+            business.PaymentStatus = PaymentStatus.Paid;
+            business.Status = BusinessStatus.Active;
+            business.SubscriptionStatus = SubscriptionStatus.Active;
+            business.PaymentCompletedAt = paidAt;
+            business.LastPaymentMethod = "Offline";
+            
+            // Default to monthly if not set
+            if (string.IsNullOrEmpty(business.BillingPeriod))
+            {
+                business.BillingPeriod = "Monthly";
+            }
+
+            ApplyPaymentWindow(business, paidAt);
+        }
+        else if (request.PaymentStatus == PaymentStatus.Unpaid)
+        {
+            business.PaymentStatus = PaymentStatus.Unpaid;
+            business.Status = BusinessStatus.Suspended;
+            business.SubscriptionStatus = SubscriptionStatus.Unpaid;
+            business.GracePeriodEndsAt ??= DateTime.UtcNow;
+        }
+
+        if (request.Status.HasValue)
+        {
+            business.Status = request.Status.Value;
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Business subscription updated successfully.",
+            business.Id,
+            business.Status,
+            business.PaymentStatus,
+            business.SubscriptionStatus,
+            business.SelectedPlan,
+            business.BillingPeriod,
+            business.PaymentCompletedAt,
+            business.SubscriptionStartedAt,
+            business.NextPaymentDueAt,
+            business.GracePeriodEndsAt,
+            business.LastPaymentMethod
+        });
     }
 
     // ── Suspend a business ───────────────────────────────────────────────────
@@ -184,7 +268,11 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                     b.PaymentStatus,
                     b.SubscriptionStatus,
                     b.SelectedPlan,
-                    b.BillingPeriod
+                    b.BillingPeriod,
+                    b.PaymentCompletedAt,
+                    b.NextPaymentDueAt,
+                    b.GracePeriodEndsAt,
+                    b.LastPaymentMethod
                 })
                 .FirstOrDefaultAsync()
             : null;
@@ -227,7 +315,11 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                     PaymentStatus = business.PaymentStatus.ToString(),
                     SubscriptionStatus = business.SubscriptionStatus.ToString(),
                     business.SelectedPlan,
-                    business.BillingPeriod
+                    business.BillingPeriod,
+                    business.PaymentCompletedAt,
+                    business.NextPaymentDueAt,
+                    business.GracePeriodEndsAt,
+                    business.LastPaymentMethod
                 }
             },
             employee,
@@ -367,6 +459,31 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
         return (long)Math.Round(monthlyPrice * (1 - percent / 100m));
     }
 
+    private static bool IsValidBillingPeriod(string billingPeriod)
+    {
+        return billingPeriod.Equals("Monthly", StringComparison.OrdinalIgnoreCase) ||
+            billingPeriod.Equals("Yearly", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeBillingPeriod(string billingPeriod)
+    {
+        return billingPeriod.Equals("Yearly", StringComparison.OrdinalIgnoreCase) ? "Yearly" : "Monthly";
+    }
+
+    private static void ApplyPaymentWindow(Business business, DateTime paidAtUtc)
+    {
+        var billingPeriod = string.IsNullOrWhiteSpace(business.BillingPeriod)
+            ? "Monthly"
+            : NormalizeBillingPeriod(business.BillingPeriod);
+
+        business.BillingPeriod = billingPeriod;
+        business.SubscriptionStartedAt ??= paidAtUtc;
+        business.NextPaymentDueAt = billingPeriod == "Yearly"
+            ? paidAtUtc.AddYears(1)
+            : paidAtUtc.AddDays(30);
+        business.GracePeriodEndsAt = business.NextPaymentDueAt.Value.AddDays(7);
+    }
+
     private static List<PackageResponse> GetDefaultPackages()
     {
         var now = DateTime.UtcNow;
@@ -430,6 +547,14 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
 }
 
 public sealed record PackageDiscountRequest(bool DiscountEnabled, decimal DiscountPercent);
+
+public sealed record UpdateSubscriptionRequest
+{
+    public PaymentStatus? PaymentStatus { get; init; }
+    public string? BillingPeriod { get; init; }
+    public string? SelectedPlan { get; init; }
+    public BusinessStatus? Status { get; init; }
+}
 
 public sealed record PackageResponse(
     int Id,

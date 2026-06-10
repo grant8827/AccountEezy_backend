@@ -27,4 +27,12 @@ public class UserData
     public string? EmployeeName { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsSuperAdmin { get; set; }
+    public bool RequiresPayment { get; set; }
+    public bool IsSuspended { get; set; }
+    public string? SelectedPlan { get; set; }
+    public string? BillingPeriod { get; set; }
+    public string? PaymentStatus { get; set; }
+    public string? SubscriptionStatus { get; set; }
+    public DateTime? NextPaymentDueAt { get; set; }
+    public DateTime? GracePeriodEndsAt { get; set; }
 }

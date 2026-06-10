@@ -68,7 +68,7 @@ public class Business
     [MaxLength(500)]
     public string? LogoUrl { get; set; }
 
-    // Platform status: "Pending", "Active", "Suspended"
+    // Platform status: "Pending", "Active", "Suspended", "Deactivated"
     public BusinessStatus Status { get; set; } = BusinessStatus.Pending;
 
     // Subscription status: "Incomplete", "Active", "Canceled", "Unpaid", "PastDue"
@@ -91,6 +91,15 @@ public class Business
     public string? StripeSubscriptionId { get; set; }
 
     public DateTime? PaymentCompletedAt { get; set; }
+
+    public DateTime? SubscriptionStartedAt { get; set; }
+
+    public DateTime? NextPaymentDueAt { get; set; }
+
+    public DateTime? GracePeriodEndsAt { get; set; }
+
+    [MaxLength(40)]
+    public string? LastPaymentMethod { get; set; }
 
     public ICollection<Employee> Employees { get; set; } = new List<Employee>();
     public ICollection<TransactionEntry> Transactions { get; set; } = new List<TransactionEntry>();
