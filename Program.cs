@@ -5,6 +5,7 @@ using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,7 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options
+        .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .ConfigureWarnings(warnings =>
+            warnings.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services.AddIdentityCore<AppUser>(options =>
 {
@@ -92,6 +96,7 @@ using (var startupScope = app.Services.CreateScope())
     {
         var db = startupScope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync();
+        await EnsureSubscriptionColumns(db);
     }
     catch (Exception ex)
     {
@@ -154,6 +159,26 @@ if (startupMigrationError != null)
             error = startupMigrationError
         });
     });
+}
+
+static async Task EnsureSubscriptionColumns(AppDbContext db)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "BillingPeriod" character varying(20);
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "PaymentCompletedAt" timestamp with time zone;
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "PaymentStatus" text NOT NULL DEFAULT 'Unpaid';
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "SelectedPlan" character varying(80);
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "StripeCustomerId" character varying(120);
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "StripeSubscriptionId" character varying(120);
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "SubscriptionStatus" text NOT NULL DEFAULT 'Incomplete';
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "SubscriptionStartedAt" timestamp with time zone;
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "NextPaymentDueAt" timestamp with time zone;
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "GracePeriodEndsAt" timestamp with time zone;
+        ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "LastPaymentMethod" character varying(40);
+
+        UPDATE "Businesses" SET "PaymentStatus" = 'Unpaid' WHERE "PaymentStatus" IS NULL OR "PaymentStatus" = '';
+        UPDATE "Businesses" SET "SubscriptionStatus" = 'Incomplete' WHERE "SubscriptionStatus" IS NULL OR "SubscriptionStatus" = '';
+        """);
 }
 
 // Seed test data in development
