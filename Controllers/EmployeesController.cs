@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace backend.Controllers;
 
@@ -12,7 +13,7 @@ public class EmployeeRequest
     public string Name { get; set; } = string.Empty;
     public string NisNumber { get; set; } = string.Empty;
     public decimal GrossSalary { get; set; } // Monthly gross salary
-    public PayCycle PayCycle { get; set; } = PayCycle.Monthly;
+    public JsonElement? PayCycle { get; set; }
 
     // New fields for employee records
     public string? TRN { get; set; }
@@ -49,6 +50,28 @@ public class EmployeeRequest
     public decimal YtdEducationTax { get; set; } = 0m;
     public decimal YtdPaye { get; set; } = 0m;
     public decimal YtdTotalDeductions { get; set; } = 0m;
+
+    public PayCycle ResolvePayCycle()
+    {
+        if (PayCycle is null)
+        {
+            return Models.PayCycle.Monthly;
+        }
+
+        var value = PayCycle.Value;
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number when value.TryGetInt32(out var numericValue) &&
+                                      Enum.IsDefined(typeof(PayCycle), numericValue)
+                => (PayCycle)numericValue,
+            JsonValueKind.String when Enum.TryParse<PayCycle>(
+                value.GetString()?.Replace("Bi-Weekly", "Fortnightly"),
+                ignoreCase: true,
+                out var parsedValue)
+                => parsedValue,
+            _ => Models.PayCycle.Monthly
+        };
+    }
 }
 
 [ApiController]
@@ -113,7 +136,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             Name = request.Name,
             NISNumber = request.NisNumber,
             GrossSalary = request.GrossSalary,
-            PayCycle = request.PayCycle,
+            PayCycle = request.ResolvePayCycle(),
             TRN = request.TRN,
             EmployeeIdNumber = request.EmployeeIdNumber,
             BankAccountNumber = request.BankAccountNumber,
@@ -212,7 +235,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         employee.Name = request.Name;
         employee.NISNumber = request.NisNumber;
         employee.GrossSalary = request.GrossSalary;
-        employee.PayCycle = request.PayCycle;
+        employee.PayCycle = request.ResolvePayCycle();
         employee.TRN = request.TRN;
         employee.EmployeeIdNumber = request.EmployeeIdNumber;
         employee.BankAccountNumber = request.BankAccountNumber;
