@@ -123,11 +123,41 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         return Ok(employees);
     }
 
+    private static int GetPlanEmployeeLimit(string? plan) => plan?.ToLower() switch
+    {
+        "lite"    => 5,
+        "starter" => 15,
+        "growth"  => 35,
+        _         => int.MaxValue // custom or trial = unlimited
+    };
+
     [HttpPost]
     public async Task<ActionResult<Employee>> Create(EmployeeRequest request)
     {
         var businessId = GetBusinessId();
         if (businessId is null) return Unauthorized();
+
+        // Enforce plan employee limit
+        var business = await dbContext.Businesses
+            .Where(b => b.Id == businessId.Value)
+            .Select(b => new { b.SelectedPlan, EmployeeCount = b.Employees.Count })
+            .FirstOrDefaultAsync();
+
+        if (business is not null)
+        {
+            var limit = GetPlanEmployeeLimit(business.SelectedPlan);
+            if (business.EmployeeCount >= limit)
+            {
+                return StatusCode(403, new
+                {
+                    message = $"You have reached the maximum of {limit} employee{(limit == 1 ? "" : "s")} for the {business.SelectedPlan?.ToUpper() ?? "current"} plan. Please upgrade to add more employees.",
+                    requiresUpgrade = true,
+                    currentPlan = business.SelectedPlan,
+                    employeeLimit = limit,
+                    currentCount = business.EmployeeCount
+                });
+            }
+        }
 
         // Create employee record
         var employee = new Employee
