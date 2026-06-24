@@ -438,46 +438,13 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 GetEffectiveYearlyPrice(package),
                 package.UpdatedAt));
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback keeps Super Admin page usable when DB migrations are pending.
-            var fallbackPackage = GetDefaultPackageById(id);
-            if (fallbackPackage is null)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
             {
-                return NotFound(new { message = "Package not found." });
-            }
-
-            var now = DateTime.UtcNow;
-
-            Response.Headers.Append("X-Packages-Fallback", "defaults");
-            Response.Headers.Append("X-Packages-Note", "Package pricing update not persisted while database schema is unavailable.");
-
-            fallbackPackage.MonthlyPriceJmd = request.MonthlyPriceJmd;
-            fallbackPackage.YearlyPriceJmd = request.YearlyPriceJmd;
-            fallbackPackage.MonthlySaleEnabled = request.MonthlySaleEnabled;
-            fallbackPackage.MonthlySalePriceJmd = request.MonthlySaleEnabled ? request.MonthlySalePriceJmd : null;
-            fallbackPackage.YearlySaleEnabled = request.YearlySaleEnabled;
-            fallbackPackage.YearlySalePriceJmd = request.YearlySaleEnabled ? request.YearlySalePriceJmd : null;
-            fallbackPackage.FreeTrialDays = request.FreeTrialDays;
-
-            return Ok(new PackageResponse(
-                fallbackPackage.DisplayOrder,
-                fallbackPackage.Key,
-                fallbackPackage.Name,
-                fallbackPackage.MonthlyPriceJmd,
-                fallbackPackage.YearlyPriceJmd,
-                fallbackPackage.IsCustom,
-                false,
-                0,
-                fallbackPackage.MonthlySaleEnabled,
-                fallbackPackage.MonthlySalePriceJmd,
-                fallbackPackage.YearlySaleEnabled,
-                fallbackPackage.YearlySalePriceJmd,
-                fallbackPackage.FreeTrialDays,
-                GetEffectiveMonthlyPrice(fallbackPackage),
-                GetRegularYearlyPrice(fallbackPackage),
-                GetEffectiveYearlyPrice(fallbackPackage),
-                now));
+                message = "Package pricing could not be saved because the package database schema is unavailable.",
+                detail = ex.Message
+            });
         }
     }
 

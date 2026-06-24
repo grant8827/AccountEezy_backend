@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace backend.Migrations
 {
     /// <inheritdoc />
-    public partial class AddPackageSalePricing : Migration
+    [Migration("20260624143000_EnsureSubscriptionPackagesSchema")]
+    public partial class EnsureSubscriptionPackagesSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,46 +17,43 @@ namespace backend.Migrations
                     "Key" character varying(40) NOT NULL,
                     "Name" character varying(80) NOT NULL,
                     "MonthlyPriceJmd" bigint NOT NULL,
+                    "YearlyPriceJmd" bigint NULL,
                     "DisplayOrder" integer NOT NULL,
                     "IsCustom" boolean NOT NULL DEFAULT false,
                     "DiscountEnabled" boolean NOT NULL DEFAULT false,
                     "DiscountPercent" numeric NOT NULL DEFAULT 0,
+                    "MonthlySaleEnabled" boolean NOT NULL DEFAULT false,
+                    "MonthlySalePriceJmd" bigint NULL,
+                    "YearlySaleEnabled" boolean NOT NULL DEFAULT false,
+                    "YearlySalePriceJmd" bigint NULL,
+                    "FreeTrialDays" integer NOT NULL DEFAULT 14,
                     "UpdatedAt" timestamp with time zone NOT NULL DEFAULT now()
                 );
 
+                ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "YearlyPriceJmd" bigint NULL;
                 ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "MonthlySaleEnabled" boolean NOT NULL DEFAULT false;
                 ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "MonthlySalePriceJmd" bigint NULL;
                 ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "YearlySaleEnabled" boolean NOT NULL DEFAULT false;
                 ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "YearlySalePriceJmd" bigint NULL;
-                ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "YearlyPriceJmd" bigint NULL;
+                ALTER TABLE "SubscriptionPackages" ADD COLUMN IF NOT EXISTS "FreeTrialDays" integer NOT NULL DEFAULT 14;
 
                 CREATE UNIQUE INDEX IF NOT EXISTS "IX_SubscriptionPackages_Key"
                     ON "SubscriptionPackages" ("Key");
+
+                INSERT INTO "SubscriptionPackages"
+                    ("Key", "Name", "MonthlyPriceJmd", "DisplayOrder", "IsCustom", "DiscountEnabled", "DiscountPercent", "UpdatedAt")
+                VALUES
+                    ('lite', 'Lite', 3500, 1, false, false, 0, now()),
+                    ('starter', 'Starter', 6500, 2, false, false, 0, now()),
+                    ('growth', 'Growth', 12500, 3, false, false, 0, now()),
+                    ('custom', 'Custom', 15000, 4, true, false, 0, now())
+                ON CONFLICT ("Key") DO NOTHING;
                 """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "MonthlySaleEnabled",
-                table: "SubscriptionPackages");
-
-            migrationBuilder.DropColumn(
-                name: "MonthlySalePriceJmd",
-                table: "SubscriptionPackages");
-
-            migrationBuilder.DropColumn(
-                name: "YearlySaleEnabled",
-                table: "SubscriptionPackages");
-
-            migrationBuilder.DropColumn(
-                name: "YearlySalePriceJmd",
-                table: "SubscriptionPackages");
-
-            migrationBuilder.DropColumn(
-                name: "YearlyPriceJmd",
-                table: "SubscriptionPackages");
         }
     }
 }
