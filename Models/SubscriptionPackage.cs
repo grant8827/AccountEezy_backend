@@ -14,6 +14,8 @@ public class SubscriptionPackage
 
     public long MonthlyPriceJmd { get; set; }
 
+    public long? YearlyPriceJmd { get; set; }
+
     public int DisplayOrder { get; set; }
 
     public bool IsCustom { get; set; }
@@ -21,6 +23,16 @@ public class SubscriptionPackage
     public bool DiscountEnabled { get; set; }
 
     public decimal DiscountPercent { get; set; }
+
+    public bool MonthlySaleEnabled { get; set; }
+
+    public long? MonthlySalePriceJmd { get; set; }
+
+    public bool YearlySaleEnabled { get; set; }
+
+    public long? YearlySalePriceJmd { get; set; }
+
+    public int FreeTrialDays { get; set; } = 14;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

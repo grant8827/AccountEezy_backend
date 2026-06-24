@@ -131,17 +131,25 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         _         => int.MaxValue // custom or trial = unlimited
     };
 
+    private static bool HasEmployeePortalAccess(string? plan) =>
+        !string.Equals(plan, "lite", StringComparison.OrdinalIgnoreCase);
+
     [HttpPost]
     public async Task<ActionResult<Employee>> Create(EmployeeRequest request)
     {
         var businessId = GetBusinessId();
         if (businessId is null) return Unauthorized();
 
-        // Enforce plan employee limit
+        // Enforce plan employee limit and portal access
         var business = await dbContext.Businesses
             .Where(b => b.Id == businessId.Value)
             .Select(b => new { b.SelectedPlan, EmployeeCount = b.Employees.Count })
             .FirstOrDefaultAsync();
+
+        var hasPortalAccess = HasEmployeePortalAccess(business?.SelectedPlan);
+
+        if (hasPortalAccess && string.IsNullOrEmpty(request.Password))
+            return BadRequest(new { message = "Password is required when creating a new employee." });
 
         if (business is not null)
         {
@@ -177,7 +185,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
             PhoneNumber = request.PhoneNumber,
             Address = request.Address,
             Email = request.Email,
-            PasswordHash = !string.IsNullOrEmpty(request.Password)
+            PasswordHash = hasPortalAccess && !string.IsNullOrEmpty(request.Password)
                 ? BCrypt.Net.BCrypt.HashPassword(request.Password)
                 : null,
             EmploymentType = request.EmploymentType,
@@ -200,7 +208,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         await dbContext.SaveChangesAsync();
 
         // Create user account in AspNetUsers if email and password provided
-        if (!string.IsNullOrEmpty(request.Email) && !string.IsNullOrEmpty(request.Password))
+        if (hasPortalAccess && !string.IsNullOrEmpty(request.Email) && !string.IsNullOrEmpty(request.Password))
         {
             var existingUser = await userManager.FindByEmailAsync(request.Email);
             if (existingUser == null)
@@ -260,6 +268,12 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
 
         if (employee is null) return NotFound();
 
+        var selectedPlan = await dbContext.Businesses
+            .Where(b => b.Id == businessId.Value)
+            .Select(b => b.SelectedPlan)
+            .FirstOrDefaultAsync();
+        var hasPortalAccess = HasEmployeePortalAccess(selectedPlan);
+
         var oldEmail = employee.Email;
 
         employee.Name = request.Name;
@@ -293,15 +307,19 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         employee.YtdTotalDeductions = request.YtdTotalDeductions;
 
         // Only update password if a new one is provided
-        if (!string.IsNullOrEmpty(request.Password))
+        if (hasPortalAccess && !string.IsNullOrEmpty(request.Password))
         {
             employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        }
+        else if (!hasPortalAccess)
+        {
+            employee.PasswordHash = null;
         }
 
         await dbContext.SaveChangesAsync();
 
         // Update user account if email or password changed
-        if (!string.IsNullOrEmpty(oldEmail))
+        if (hasPortalAccess && !string.IsNullOrEmpty(oldEmail))
         {
             var appUser = await userManager.FindByEmailAsync(oldEmail);
             if (appUser != null)

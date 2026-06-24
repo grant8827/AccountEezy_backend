@@ -331,6 +331,7 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
     }
 
     [HttpGet("packages")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetPackages()
     {
         try
@@ -344,10 +345,18 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                     p.Key,
                     p.Name,
                     p.MonthlyPriceJmd,
+                    p.YearlyPriceJmd,
                     p.IsCustom,
                     p.DiscountEnabled,
                     p.DiscountPercent,
-                    CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
+                    p.MonthlySaleEnabled,
+                    p.MonthlySalePriceJmd,
+                    p.YearlySaleEnabled,
+                    p.YearlySalePriceJmd,
+                    p.FreeTrialDays,
+                    GetEffectiveMonthlyPrice(p),
+                    GetRegularYearlyPrice(p),
+                    GetEffectiveYearlyPrice(p),
                     p.UpdatedAt))
                 .ToListAsync();
 
@@ -362,11 +371,31 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
     }
 
     [HttpPut("packages/{id}/discount")]
-    public async Task<IActionResult> UpdatePackageDiscount(int id, PackageDiscountRequest request)
+    public async Task<IActionResult> UpdatePackageDiscount(int id, PackagePricingRequest request)
     {
-        if (request.DiscountPercent is < 0 or > 100)
+        if (request.MonthlyPriceJmd <= 0)
         {
-            return BadRequest(new { message = "Discount percent must be between 0 and 100." });
+            return BadRequest(new { message = "Monthly regular price must be greater than 0." });
+        }
+
+        if (request.YearlyPriceJmd is not null && request.YearlyPriceJmd <= 0)
+        {
+            return BadRequest(new { message = "Yearly regular price must be greater than 0." });
+        }
+
+        if (request.MonthlySaleEnabled && (!request.MonthlySalePriceJmd.HasValue || request.MonthlySalePriceJmd <= 0))
+        {
+            return BadRequest(new { message = "Monthly sale price must be greater than 0 when monthly sale is enabled." });
+        }
+
+        if (request.YearlySaleEnabled && (!request.YearlySalePriceJmd.HasValue || request.YearlySalePriceJmd <= 0))
+        {
+            return BadRequest(new { message = "Yearly sale price must be greater than 0 when yearly sale is enabled." });
+        }
+
+        if (request.FreeTrialDays < 0)
+        {
+            return BadRequest(new { message = "Free trial days cannot be negative." });
         }
 
         try
@@ -377,8 +406,15 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 return NotFound(new { message = "Package not found." });
             }
 
-            package.DiscountEnabled = request.DiscountEnabled;
-            package.DiscountPercent = Math.Round(request.DiscountPercent, 2);
+            package.MonthlyPriceJmd = request.MonthlyPriceJmd;
+            package.YearlyPriceJmd = request.YearlyPriceJmd;
+            package.DiscountEnabled = false;
+            package.DiscountPercent = 0;
+            package.MonthlySaleEnabled = request.MonthlySaleEnabled;
+            package.MonthlySalePriceJmd = request.MonthlySaleEnabled ? request.MonthlySalePriceJmd : null;
+            package.YearlySaleEnabled = request.YearlySaleEnabled;
+            package.YearlySalePriceJmd = request.YearlySaleEnabled ? request.YearlySalePriceJmd : null;
+            package.FreeTrialDays = request.FreeTrialDays;
             package.UpdatedAt = DateTime.UtcNow;
 
             await dbContext.SaveChangesAsync();
@@ -388,10 +424,18 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 package.Key,
                 package.Name,
                 package.MonthlyPriceJmd,
+                package.YearlyPriceJmd,
                 package.IsCustom,
                 package.DiscountEnabled,
                 package.DiscountPercent,
-                CalculateDiscountedPrice(package.MonthlyPriceJmd, package.DiscountEnabled, package.DiscountPercent),
+                package.MonthlySaleEnabled,
+                package.MonthlySalePriceJmd,
+                package.YearlySaleEnabled,
+                package.YearlySalePriceJmd,
+                package.FreeTrialDays,
+                GetEffectiveMonthlyPrice(package),
+                GetRegularYearlyPrice(package),
+                GetEffectiveYearlyPrice(package),
                 package.UpdatedAt));
         }
         catch
@@ -403,21 +447,36 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 return NotFound(new { message = "Package not found." });
             }
 
-            var roundedPercent = Math.Round(request.DiscountPercent, 2);
             var now = DateTime.UtcNow;
 
             Response.Headers.Append("X-Packages-Fallback", "defaults");
-            Response.Headers.Append("X-Packages-Note", "Discount update not persisted while database schema is unavailable.");
+            Response.Headers.Append("X-Packages-Note", "Package pricing update not persisted while database schema is unavailable.");
+
+            fallbackPackage.MonthlyPriceJmd = request.MonthlyPriceJmd;
+            fallbackPackage.YearlyPriceJmd = request.YearlyPriceJmd;
+            fallbackPackage.MonthlySaleEnabled = request.MonthlySaleEnabled;
+            fallbackPackage.MonthlySalePriceJmd = request.MonthlySaleEnabled ? request.MonthlySalePriceJmd : null;
+            fallbackPackage.YearlySaleEnabled = request.YearlySaleEnabled;
+            fallbackPackage.YearlySalePriceJmd = request.YearlySaleEnabled ? request.YearlySalePriceJmd : null;
+            fallbackPackage.FreeTrialDays = request.FreeTrialDays;
 
             return Ok(new PackageResponse(
                 fallbackPackage.DisplayOrder,
                 fallbackPackage.Key,
                 fallbackPackage.Name,
                 fallbackPackage.MonthlyPriceJmd,
+                fallbackPackage.YearlyPriceJmd,
                 fallbackPackage.IsCustom,
-                request.DiscountEnabled,
-                roundedPercent,
-                CalculateDiscountedPrice(fallbackPackage.MonthlyPriceJmd, request.DiscountEnabled, roundedPercent),
+                false,
+                0,
+                fallbackPackage.MonthlySaleEnabled,
+                fallbackPackage.MonthlySalePriceJmd,
+                fallbackPackage.YearlySaleEnabled,
+                fallbackPackage.YearlySalePriceJmd,
+                fallbackPackage.FreeTrialDays,
+                GetEffectiveMonthlyPrice(fallbackPackage),
+                GetRegularYearlyPrice(fallbackPackage),
+                GetEffectiveYearlyPrice(fallbackPackage),
                 now));
         }
     }
@@ -435,8 +494,10 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 Key = p.Key,
                 Name = p.Name,
                 MonthlyPriceJmd = p.MonthlyPriceJmd,
+                YearlyPriceJmd = p.YearlyPriceJmd,
                 DisplayOrder = p.DisplayOrder,
-                IsCustom = p.IsCustom
+                IsCustom = p.IsCustom,
+                FreeTrialDays = p.FreeTrialDays
             })
             .ToList();
 
@@ -457,6 +518,32 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
         }
 
         return (long)Math.Round(monthlyPrice * (1 - percent / 100m));
+    }
+
+    private static long GetRegularYearlyPrice(SubscriptionPackage package) =>
+        package.YearlyPriceJmd ?? (long)Math.Round(package.MonthlyPriceJmd * 12 * 0.8m);
+
+    private static long GetEffectiveMonthlyPrice(SubscriptionPackage package)
+    {
+        if (package.MonthlySaleEnabled && package.MonthlySalePriceJmd is > 0)
+        {
+            return package.MonthlySalePriceJmd.Value;
+        }
+
+        return CalculateDiscountedPrice(package.MonthlyPriceJmd, package.DiscountEnabled, package.DiscountPercent);
+    }
+
+    private static long GetEffectiveYearlyPrice(SubscriptionPackage package)
+    {
+        if (package.YearlySaleEnabled && package.YearlySalePriceJmd is > 0)
+        {
+            return package.YearlySalePriceJmd.Value;
+        }
+
+        var regularYearlyPrice = GetRegularYearlyPrice(package);
+        return package.DiscountEnabled && package.DiscountPercent > 0
+            ? (long)Math.Round(regularYearlyPrice * (1 - package.DiscountPercent / 100m))
+            : regularYearlyPrice;
     }
 
     private static bool IsValidBillingPeriod(string billingPeriod)
@@ -495,10 +582,18 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
                 p.Key,
                 p.Name,
                 p.MonthlyPriceJmd,
+                p.YearlyPriceJmd,
                 p.IsCustom,
                 p.DiscountEnabled,
                 p.DiscountPercent,
-                CalculateDiscountedPrice(p.MonthlyPriceJmd, p.DiscountEnabled, p.DiscountPercent),
+                p.MonthlySaleEnabled,
+                p.MonthlySalePriceJmd,
+                p.YearlySaleEnabled,
+                p.YearlySalePriceJmd,
+                p.FreeTrialDays,
+                GetEffectiveMonthlyPrice(p),
+                GetRegularYearlyPrice(p),
+                GetEffectiveYearlyPrice(p),
                 now))
             .ToList();
     }
@@ -546,7 +641,14 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
     }
 }
 
-public sealed record PackageDiscountRequest(bool DiscountEnabled, decimal DiscountPercent);
+public sealed record PackagePricingRequest(
+    long MonthlyPriceJmd,
+    long? YearlyPriceJmd,
+    bool MonthlySaleEnabled,
+    long? MonthlySalePriceJmd,
+    bool YearlySaleEnabled,
+    long? YearlySalePriceJmd,
+    int FreeTrialDays);
 
 public sealed record UpdateSubscriptionRequest
 {
@@ -561,8 +663,16 @@ public sealed record PackageResponse(
     string Key,
     string Name,
     long MonthlyPriceJmd,
+    long? YearlyPriceJmd,
     bool IsCustom,
     bool DiscountEnabled,
     decimal DiscountPercent,
+    bool MonthlySaleEnabled,
+    long? MonthlySalePriceJmd,
+    bool YearlySaleEnabled,
+    long? YearlySalePriceJmd,
+    int FreeTrialDays,
     long DiscountedMonthlyPriceJmd,
+    long RegularYearlyPriceJmd,
+    long DiscountedYearlyPriceJmd,
     DateTime UpdatedAt);

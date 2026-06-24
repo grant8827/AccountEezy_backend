@@ -42,6 +42,7 @@ public class EmployeeAuthController(AppDbContext dbContext, IOptions<JwtOptions>
         }
 
         var employee = await dbContext.Employees
+            .Include(e => e.Business)
             .FirstOrDefaultAsync(e => e.Email == request.Email && e.IsActive);
 
         if (employee is null || string.IsNullOrEmpty(employee.PasswordHash))
@@ -53,6 +54,16 @@ public class EmployeeAuthController(AppDbContext dbContext, IOptions<JwtOptions>
         if (!BCrypt.Net.BCrypt.Verify(request.Password, employee.PasswordHash))
         {
             return Unauthorized(new { message = "Invalid email or password" });
+        }
+
+        if (!HasEmployeePortalAccess(employee.Business?.SelectedPlan))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                message = "This option is not part of your package. Upgrade to use employee portal.",
+                requiresUpgrade = true,
+                currentPlan = employee.Business?.SelectedPlan
+            });
         }
 
         // Generate JWT token
@@ -97,4 +108,7 @@ public class EmployeeAuthController(AppDbContext dbContext, IOptions<JwtOptions>
         var token = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
         return (token, expiresAtUtc);
     }
+
+    private static bool HasEmployeePortalAccess(string? plan) =>
+        !string.Equals(plan, "lite", StringComparison.OrdinalIgnoreCase);
 }

@@ -574,6 +574,9 @@ namespace backend.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("integer");
 
+                    b.Property<int>("FreeTrialDays")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsCustom")
                         .HasColumnType("boolean");
 
@@ -585,6 +588,12 @@ namespace backend.Migrations
                     b.Property<long>("MonthlyPriceJmd")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("MonthlySaleEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long?>("MonthlySalePriceJmd")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -592,6 +601,15 @@ namespace backend.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("YearlyPriceJmd")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("YearlySaleEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long?>("YearlySalePriceJmd")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 

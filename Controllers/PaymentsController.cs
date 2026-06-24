@@ -27,11 +27,6 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
             return BadRequest(new { message = "Select a valid paid plan before starting checkout." });
         }
 
-        var discountEnabled = package.DiscountEnabled && package.DiscountPercent > 0;
-        var discountPercent = discountEnabled ? package.DiscountPercent : 0m;
-        var monthlyPriceJmd = package.MonthlyPriceJmd;
-        var discountedMonthlyPriceJmd = CalculateDiscountedPrice(monthlyPriceJmd, discountEnabled, discountPercent);
-
         var secretKey = configuration["Stripe:SecretKey"];
         if (string.IsNullOrWhiteSpace(secretKey))
         {
@@ -45,10 +40,14 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
             ? "yearly"
             : "monthly";
         var interval = billing == "yearly" ? "year" : "month";
-        var amount = billing == "yearly"
-            ? (long)Math.Round(discountedMonthlyPriceJmd * 12 * 0.8m * 100m)
-            : discountedMonthlyPriceJmd * 100;
-        var configuredPriceId = configuration[$"Stripe:Prices:{request.Plan}:{billing}"];
+        var amountJmd = billing == "yearly"
+            ? GetEffectiveYearlyPrice(package)
+            : GetEffectiveMonthlyPrice(package);
+        var amount = amountJmd * 100;
+        var saleActive = billing == "yearly"
+            ? package.YearlySaleEnabled && package.YearlySalePriceJmd is > 0
+            : package.MonthlySaleEnabled && package.MonthlySalePriceJmd is > 0;
+        var freeTrialDays = Math.Max(0, package.FreeTrialDays);
 
         var frontendUrl = configuration["FrontendUrl"]?.TrimEnd('/')
             ?? $"{Request.Scheme}://{Request.Host}";
@@ -70,8 +69,11 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
             new("line_items[0][quantity]", "1"),
             new("metadata[plan]", request.Plan),
             new("metadata[billing]", billing),
-            new("metadata[discount_percent]", discountPercent.ToString("0.##")),
-            new("metadata[monthly_price_jmd]", discountedMonthlyPriceJmd.ToString())
+            new("metadata[sale_active]", saleActive ? "true" : "false"),
+            new("metadata[free_trial_days]", freeTrialDays.ToString()),
+            new("metadata[price_jmd]", amountJmd.ToString()),
+            new("metadata[monthly_price_jmd]", GetEffectiveMonthlyPrice(package).ToString()),
+            new("metadata[yearly_price_jmd]", GetEffectiveYearlyPrice(package).ToString())
         };
 
         if (request.BusinessId is not null)
@@ -79,20 +81,18 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
             form.Add(new("metadata[business_id]", request.BusinessId.Value.ToString()));
         }
 
-        if (!discountEnabled && !string.IsNullOrWhiteSpace(configuredPriceId))
+        form.AddRange([
+            new("line_items[0][price_data][currency]", "jmd"),
+            new("line_items[0][price_data][product_data][name]", saleActive
+                ? $"HRBooks360 {package.Name} Sale"
+                : $"HRBooks360 {package.Name}"),
+            new("line_items[0][price_data][unit_amount]", amount.ToString()),
+            new("line_items[0][price_data][recurring][interval]", interval)
+        ]);
+
+        if (freeTrialDays > 0)
         {
-            form.Add(new("line_items[0][price]", configuredPriceId));
-        }
-        else
-        {
-            form.AddRange([
-                new("line_items[0][price_data][currency]", "jmd"),
-                new("line_items[0][price_data][product_data][name]", discountEnabled
-                    ? $"HRBooks360 {package.Name} ({discountPercent:0.##}% off)"
-                    : $"HRBooks360 {package.Name}"),
-                new("line_items[0][price_data][unit_amount]", amount.ToString()),
-                new("line_items[0][price_data][recurring][interval]", interval)
-            ]);
+            form.Add(new("subscription_data[trial_period_days]", freeTrialDays.ToString()));
         }
 
         if (!string.IsNullOrWhiteSpace(request.CustomerEmail))
@@ -319,6 +319,32 @@ public class PaymentsController(IConfiguration configuration, IHttpClientFactory
         }
 
         return Math.Max(0, (long)Math.Round(monthlyPrice * (1 - percent / 100m)));
+    }
+
+    private static long GetRegularYearlyPrice(SubscriptionPackage package) =>
+        package.YearlyPriceJmd ?? (long)Math.Round(package.MonthlyPriceJmd * 12 * 0.8m);
+
+    private static long GetEffectiveMonthlyPrice(SubscriptionPackage package)
+    {
+        if (package.MonthlySaleEnabled && package.MonthlySalePriceJmd is > 0)
+        {
+            return package.MonthlySalePriceJmd.Value;
+        }
+
+        return CalculateDiscountedPrice(package.MonthlyPriceJmd, package.DiscountEnabled, package.DiscountPercent);
+    }
+
+    private static long GetEffectiveYearlyPrice(SubscriptionPackage package)
+    {
+        if (package.YearlySaleEnabled && package.YearlySalePriceJmd is > 0)
+        {
+            return package.YearlySalePriceJmd.Value;
+        }
+
+        var regularYearlyPrice = GetRegularYearlyPrice(package);
+        return package.DiscountEnabled && package.DiscountPercent > 0
+            ? (long)Math.Round(regularYearlyPrice * (1 - package.DiscountPercent / 100m))
+            : regularYearlyPrice;
     }
 
     private static void ApplyPaymentWindow(Models.Business business, string? billingPeriod, DateTime paidAtUtc)

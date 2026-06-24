@@ -61,6 +61,8 @@ public class AuthController(
 
         // Create business in database
         var trialStart = DateTime.UtcNow;
+        var selectedPlan = string.IsNullOrWhiteSpace(request.SelectedPlan) ? null : request.SelectedPlan.Trim().ToLowerInvariant();
+        var freeTrialDays = await GetFreeTrialDays(selectedPlan);
         var business = new Business
         {
             Status = BusinessStatus.Pending,  // Must be approved by super-admin before login
@@ -83,7 +85,7 @@ public class AuthController(
             BusinessPhone = request.BusinessPhone,
             BusinessEmail = request.BusinessEmail,
             Website = request.Website,
-            SelectedPlan = string.IsNullOrWhiteSpace(request.SelectedPlan) ? null : request.SelectedPlan.Trim().ToLowerInvariant(),
+            SelectedPlan = selectedPlan,
             BillingPeriod = NormalizeBillingPeriod(request.BillingPeriod)
         };
 
@@ -108,8 +110,8 @@ public class AuthController(
                     BusinessId = (int)business.Id,
                     BusinessName = business.CompanyName,
                     TrialStartDate = business.TrialStartDate,
-                    TrialExpiresAt = business.TrialStartDate.AddDays(14),
-                    IsTrialExpired = false,
+                    TrialExpiresAt = business.TrialStartDate.AddDays(freeTrialDays),
+                    IsTrialExpired = freeTrialDays > 0 && DateTime.UtcNow > business.TrialStartDate.AddDays(freeTrialDays),
                     IsAdmin = true,
                     RequiresPayment = true,
                     SelectedPlan = business.SelectedPlan,
@@ -151,12 +153,22 @@ public class AuthController(
         if (user is null)
         {
             var empUser = await dbContext.Employees
+                .Include(e => e.Business)
                 .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
 
             if (empUser is null || string.IsNullOrEmpty(empUser.PasswordHash) ||
                 !BCrypt.Net.BCrypt.Verify(request.Password, empUser.PasswordHash))
             {
                 return Ok(new AuthResponse { Success = false, Message = "Invalid email or password." });
+            }
+
+            if (!HasEmployeePortalAccess(empUser.Business?.SelectedPlan))
+            {
+                return Ok(new AuthResponse
+                {
+                    Success = false,
+                    Message = "This option is not part of your package. Upgrade to use employee portal."
+                });
             }
 
             var (empToken, empExpires) = jwtTokenService.GenerateForEmployee(empUser);
@@ -255,6 +267,15 @@ public class AuthController(
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Email == email && e.IsActive);
 
+        if (employee is not null && !HasEmployeePortalAccess(business?.SelectedPlan))
+        {
+            return Ok(new AuthResponse
+            {
+                Success = false,
+                Message = "This option is not part of your package. Upgrade to use employee portal."
+            });
+        }
+
         if (business is not null)
         {
             await dbContext.SaveChangesAsync();
@@ -263,7 +284,10 @@ public class AuthController(
         var (token, expiresAt) = jwtTokenService.Generate(user, employee?.Id);
 
         var loginTrialStart = business?.TrialStartDate ?? DateTime.UtcNow;
-        var loginTrialExpiresAt = loginTrialStart.AddYears(100); // Trial disabled during development
+        var loginFreeTrialDays = business is null ? 0 : await GetFreeTrialDays(business.SelectedPlan);
+        var loginTrialExpiresAt = loginFreeTrialDays > 0
+            ? loginTrialStart.AddDays(loginFreeTrialDays)
+            : loginTrialStart;
         return Ok(new AuthResponse
         {
             Success = true,
@@ -278,7 +302,7 @@ public class AuthController(
                     ExpiresAtUtc = expiresAt,
                     TrialStartDate = loginTrialStart,
                     TrialExpiresAt = loginTrialExpiresAt,
-                    IsTrialExpired = DateTime.UtcNow > loginTrialExpiresAt,
+                    IsTrialExpired = loginFreeTrialDays > 0 && DateTime.UtcNow > loginTrialExpiresAt,
                     IsEmployee = employee is not null,
                     EmployeeId = employee?.Id,
                     EmployeeName = employee?.Name,
@@ -308,6 +332,24 @@ public class AuthController(
         return billingPeriod.Trim().Equals("yearly", StringComparison.OrdinalIgnoreCase)
             ? "Yearly"
             : "Monthly";
+    }
+
+    private static bool HasEmployeePortalAccess(string? plan) =>
+        !string.Equals(plan, "lite", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<int> GetFreeTrialDays(string? selectedPlan)
+    {
+        if (string.IsNullOrWhiteSpace(selectedPlan))
+        {
+            return 14;
+        }
+
+        var trialDays = await dbContext.SubscriptionPackages
+            .Where(p => p.Key == selectedPlan)
+            .Select(p => (int?)p.FreeTrialDays)
+            .FirstOrDefaultAsync();
+
+        return Math.Max(0, trialDays ?? 14);
     }
 
     private static void ApplyPastDueSuspensionIfNeeded(Business business)

@@ -18,6 +18,7 @@ public class EmployeePortalController(AppDbContext dbContext) : BaseApiControlle
     {
         var employeeId = GetEmployeeId();
         if (employeeId is null) return Unauthorized();
+        if (!await HasPortalAccess(employeeId.Value)) return PortalAccessUpgradeRequired();
 
         var rawEntries = await dbContext.PayrollEntries
             .Include(e => e.Batch)
@@ -78,6 +79,7 @@ public class EmployeePortalController(AppDbContext dbContext) : BaseApiControlle
     {
         var employeeId = GetEmployeeId();
         if (employeeId is null) return Unauthorized();
+        if (!await HasPortalAccess(employeeId.Value)) return PortalAccessUpgradeRequired();
 
         var vacationDaysBalance = await dbContext.Employees
             .Where(e => e.Id == employeeId.Value)
@@ -111,6 +113,7 @@ public class EmployeePortalController(AppDbContext dbContext) : BaseApiControlle
     {
         var employeeId = GetEmployeeId();
         if (employeeId is null) return Unauthorized();
+        if (!await HasPortalAccess(employeeId.Value)) return PortalAccessUpgradeRequired();
 
         // Resolve businessId from the employee record
         var businessId = await dbContext.Employees
@@ -145,6 +148,7 @@ public class EmployeePortalController(AppDbContext dbContext) : BaseApiControlle
     {
         var employeeId = GetEmployeeId();
         if (employeeId is null) return Unauthorized();
+        if (!await HasPortalAccess(employeeId.Value)) return PortalAccessUpgradeRequired();
 
         var profile = await dbContext.Employees
             .Where(e => e.Id == employeeId.Value)
@@ -164,4 +168,20 @@ public class EmployeePortalController(AppDbContext dbContext) : BaseApiControlle
 
         return Ok(profile);
     }
+
+    private async Task<bool> HasPortalAccess(int employeeId)
+    {
+        var selectedPlan = await dbContext.Employees
+            .Where(e => e.Id == employeeId)
+            .Select(e => e.Business != null ? e.Business.SelectedPlan : null)
+            .FirstOrDefaultAsync();
+
+        return !string.Equals(selectedPlan, "lite", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private ObjectResult PortalAccessUpgradeRequired() => StatusCode(StatusCodes.Status403Forbidden, new
+    {
+        message = "This option is not part of your package. Upgrade to use employee portal.",
+        requiresUpgrade = true
+    });
 }
