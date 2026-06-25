@@ -344,12 +344,21 @@ public class AuthController(
             return 14;
         }
 
-        var trialDays = await dbContext.SubscriptionPackages
-            .Where(p => p.Key == selectedPlan)
-            .Select(p => (int?)p.FreeTrialDays)
-            .FirstOrDefaultAsync();
+        try
+        {
+            var trialDays = await dbContext.SubscriptionPackages
+                .Where(p => p.Key == selectedPlan)
+                .Select(p => (int?)p.FreeTrialDays)
+                .FirstOrDefaultAsync();
 
-        return Math.Max(0, trialDays ?? 14);
+            return Math.Max(0, trialDays ?? 14);
+        }
+        catch
+        {
+            // SubscriptionPackages table or FreeTrialDays column may not exist yet
+            // (pending migration). Return the safe default so login doesn't crash.
+            return 14;
+        }
     }
 
     private static void ApplyPastDueSuspensionIfNeeded(Business business)

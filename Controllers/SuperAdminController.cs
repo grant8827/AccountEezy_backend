@@ -602,6 +602,14 @@ public class SuperAdminController(AppDbContext dbContext) : BaseApiController
         if (business is null) return NotFound(new { message = "Business not found." });
 
         business.Status = status;
+
+        // When activating, clear any payment block so the account can log in immediately.
+        if (status == BusinessStatus.Active && business.PaymentStatus == PaymentStatus.Unpaid)
+        {
+            business.PaymentStatus = PaymentStatus.Paid;
+            business.SubscriptionStatus = SubscriptionStatus.Active;
+        }
+
         await dbContext.SaveChangesAsync();
 
         return Ok(new { message = $"{business.CompanyName} has been {actionLabel}.", status = status.ToString() });
