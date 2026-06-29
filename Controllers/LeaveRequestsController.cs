@@ -213,11 +213,34 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
         // Deduct vacation days when approving a vacation leave and it wasn't previously approved
         if (approval.Status == LeaveRequestStatus.Approved &&
             previousStatus != LeaveRequestStatus.Approved &&
-            leaveRequest.LeaveType == "Vacation" && // Assuming LeaveType is still string
+            leaveRequest.LeaveType == "Vacation" &&
             leaveRequest.Employee is not null)
         {
             leaveRequest.Employee.VacationDaysBalance = Math.Max(
                 0, leaveRequest.Employee.VacationDaysBalance - leaveRequest.DaysRequested);
+        }
+
+        // Sync IsOnLeave immediately so the table and count card reflect instantly
+        if (leaveRequest.Employee is not null)
+        {
+            var today = DateTime.UtcNow.Date;
+            var leaveIsActiveNow = leaveRequest.StartDate.Date <= today && leaveRequest.EndDate.Date > today;
+
+            if (approval.Status == LeaveRequestStatus.Approved && leaveIsActiveNow)
+            {
+                leaveRequest.Employee.IsOnLeave = true;
+            }
+            else if (approval.Status != LeaveRequestStatus.Approved && previousStatus == LeaveRequestStatus.Approved && leaveIsActiveNow)
+            {
+                // Was approved and active — check if any other approved leave still covers today
+                var stillOnLeave = await dbContext.LeaveRequests
+                    .AnyAsync(lr => lr.EmployeeId == leaveRequest.EmployeeId
+                        && lr.Id != leaveRequest.Id
+                        && lr.Status == LeaveRequestStatus.Approved
+                        && lr.StartDate.Date <= today
+                        && lr.EndDate.Date > today);
+                leaveRequest.Employee.IsOnLeave = stillOnLeave;
+            }
         }
 
         await dbContext.SaveChangesAsync();
@@ -249,10 +272,27 @@ public class LeaveRequestsController(AppDbContext dbContext, IWebHostEnvironment
 
         // Restore vacation days if deleting an approved vacation request
         if (leaveRequest.Status == LeaveRequestStatus.Approved &&
-            leaveRequest.LeaveType == "Vacation" && // Assuming LeaveType is still string
+            leaveRequest.LeaveType == "Vacation" &&
             leaveRequest.Employee is not null)
         {
             leaveRequest.Employee.VacationDaysBalance += leaveRequest.DaysRequested;
+        }
+
+        // Clear IsOnLeave if this was the active approved leave
+        if (leaveRequest.Employee is not null && leaveRequest.Status == LeaveRequestStatus.Approved)
+        {
+            var today = DateTime.UtcNow.Date;
+            var wasActiveNow = leaveRequest.StartDate.Date <= today && leaveRequest.EndDate.Date > today;
+            if (wasActiveNow)
+            {
+                var stillOnLeave = await dbContext.LeaveRequests
+                    .AnyAsync(lr => lr.EmployeeId == leaveRequest.EmployeeId
+                        && lr.Id != leaveRequest.Id
+                        && lr.Status == LeaveRequestStatus.Approved
+                        && lr.StartDate.Date <= today
+                        && lr.EndDate.Date > today);
+                leaveRequest.Employee.IsOnLeave = stillOnLeave;
+            }
         }
 
         dbContext.LeaveRequests.Remove(leaveRequest);
