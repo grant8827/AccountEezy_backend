@@ -51,6 +51,7 @@ public class Employee
     public string? PasswordHash { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public bool IsOnLeave { get; set; } = false;
 
     [MaxLength(100)]
     public string? Position { get; set; }

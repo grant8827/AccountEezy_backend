@@ -166,6 +166,8 @@ if (startupMigrationError != null)
 static async Task EnsureSubscriptionColumns(AppDbContext db)
 {
     await db.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "IsOnLeave" boolean NOT NULL DEFAULT false;
+
         ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "BillingPeriod" character varying(20);
         ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "PaymentCompletedAt" timestamp with time zone;
         ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "PaymentStatus" text NOT NULL DEFAULT 'Unpaid';
