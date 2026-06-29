@@ -38,6 +38,7 @@ public class EmployeeRequest
 
     // Status
     public bool IsActive { get; set; } = true;
+    public bool IsOnLeave { get; set; } = false;
 
     // Employee portal credentials
     public string? Email { get; set; }
@@ -295,6 +296,7 @@ public class EmployeesController(AppDbContext dbContext, UserManager<AppUser> us
         employee.Address = request.Address;
         employee.Email = request.Email;
         employee.IsActive = request.IsActive;
+        employee.IsOnLeave = request.IsActive && request.IsOnLeave;
         employee.EmploymentType = request.EmploymentType;
         employee.JobType = request.JobType;
         employee.VacationDaysBalance = request.VacationDaysBalance;
